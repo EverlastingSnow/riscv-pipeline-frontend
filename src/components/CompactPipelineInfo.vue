@@ -1,18 +1,12 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { computed } from 'vue';
 import { usePipelineStore } from '../stores/pipeline';
-import { Minus, Plus } from 'lucide-vue-next';
 
 const pipelineStore = usePipelineStore();
-const isExpanded = ref(true);
 
 const formatInst = (inst: any): string => {
   if (inst === undefined || inst === null || inst === 0) return 'NOP';
   return '0x' + Number(inst).toString(16).toUpperCase().padStart(8, '0');
-};
-
-const toggleExpanded = () => {
-  isExpanded.value = !isExpanded.value;
 };
 
 const pcNextValue = computed(() => {
@@ -26,15 +20,11 @@ const pcNextValue = computed(() => {
 </script>
 
 <template>
-  <div class="compact-info" :class="{ collapsed: !isExpanded }">
+  <div class="compact-info">
     <div class="compact-header">
       <span class="title">流水线寄存器</span>
-      <button class="toggle-btn" @click="toggleExpanded" :title="isExpanded ? '收起' : '展开'">
-        <Minus v-if="isExpanded" class="icon" />
-        <Plus v-else class="icon" />
-      </button>
     </div>
-    <div class="register-table" v-show="isExpanded">
+    <div class="register-table">
       <div class="table-header">
         <span>寄存器</span>
         <span>地址</span>
@@ -79,16 +69,13 @@ const pcNextValue = computed(() => {
 .compact-info {
   background: white;
   border-radius: 0.5rem;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   border: 1px solid #e5e7eb;
   width: 100%;
   font-size: 0.75rem;
-  transition: all 0.3s ease;
-}
-
-.compact-info.collapsed {
-  width: auto;
-  height: 3.25rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .compact-header {
@@ -98,8 +85,8 @@ const pcNextValue = computed(() => {
   padding: 0.5rem 0.75rem;
   background: #f8fafc;
   border-bottom: 1px solid #e5e7eb;
-  border-radius: 0.5rem 0.5rem 0 0;
   min-height: 2.25rem;
+  flex-shrink: 0;
 }
 
 .title {
@@ -108,34 +95,10 @@ const pcNextValue = computed(() => {
   font-size: 0.8125rem;
 }
 
-.toggle-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.25rem;
-  height: 1.25rem;
-  padding: 0;
-  background: #e2e8f0;
-  border: none;
-  border-radius: 0.25rem;
-  cursor: pointer;
-  color: #64748b;
-  transition: all 0.2s ease;
-}
-
-.toggle-btn:hover {
-  background: #3b82f6;
-  color: white;
-}
-
-.toggle-btn .icon {
-  width: 0.875rem;
-  height: 0.875rem;
-}
-
 .register-table {
-  display: flex;
-  flex-direction: column;
+  display: block;
+  overflow: auto;
+  flex: 1;
 }
 
 .table-header {
@@ -145,25 +108,33 @@ const pcNextValue = computed(() => {
   font-weight: 600;
   color: #64748b;
   font-size: 0.625rem;
+  min-width: max-content;
+  position: sticky;
+  top: 0;
+  z-index: 1;
 }
 
 .table-header span {
   flex: 1;
   text-align: center;
+  min-width: 4rem;
 }
 
 .table-header span.asm-col {
   flex: 1.5;
+  min-width: 6rem;
 }
 
 .table-header span:first-child {
   flex: 0.8;
+  min-width: 4rem;
 }
 
 .table-row {
   display: flex;
   padding: 0.15rem 0.3rem;
   border-bottom: 1px solid #f1f5f9;
+  min-width: max-content;
 }
 
 .table-row:last-child {
@@ -173,18 +144,20 @@ const pcNextValue = computed(() => {
 .table-row span {
   flex: 1;
   text-align: center;
-  overflow: hidden;
-  text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 0.6875rem;
+  min-width: 4rem;
+  padding: 0 0.25rem;
 }
 
 .table-row span.asm-col {
   flex: 1.5;
+  min-width: 6rem;
 }
 
 .table-row span:first-child {
   flex: 0.8;
+  min-width: 4rem;
 }
 
 .table-row.pc-next {
@@ -245,15 +218,25 @@ const pcNextValue = computed(() => {
 
 @media (max-width: 992px) {
   .compact-info {
-    font-size: 0.625rem;
+    min-height: 100%;
+    height: auto;
+    max-height: 100%;
+    display: flex;
+    flex-direction: column;
   }
 
   .compact-header {
     padding: 0.4rem 0.5rem;
+    flex-shrink: 0;
   }
 
   .title {
     font-size: 0.75rem;
+  }
+
+  .register-table {
+    flex: 1;
+    overflow: auto;
   }
 
   .table-header,

@@ -6,16 +6,11 @@ import {
   Pause, 
   RotateCcw, 
   ChevronRight,
-  Clock,
-  FlaskConical
+  Clock
 } from 'lucide-vue-next';
 
 const pipelineStore = usePipelineStore();
 const runInterval = ref(1000);
-
-const emit = defineEmits<{
-  (e: 'openDiffConfig'): void;
-}>();
 
 function handleIntervalChange() {
   pipelineStore.setRunInterval(runInterval.value);
@@ -76,16 +71,6 @@ function handleIntervalChange() {
       >
         <RotateCcw class="w-4 h-4" />
         <span>重置</span>
-      </button>
-
-      <button 
-        @click="$emit('openDiffConfig')"
-        class="control-btn diff-btn"
-        :class="{ 'diff-active': pipelineStore.difftestConfig.enabled }"
-        :title="pipelineStore.difftestConfig.enabled ? '差分测试已启用: ' + pipelineStore.difftestConfig.scenario.name : '差分测试配置'"
-      >
-        <FlaskConical class="w-4 h-4" />
-        <span>差分测试</span>
       </button>
     </div>
     
@@ -219,23 +204,6 @@ function handleIntervalChange() {
 
 .reset-btn:hover {
   background-color: #dc2626;
-}
-
-.diff-btn {
-  background-color: #6b7280;
-  color: white;
-}
-
-.diff-btn:hover {
-  background-color: #4b5563;
-}
-
-.diff-btn.diff-active {
-  background-color: #f97316;
-}
-
-.diff-btn.diff-active:hover {
-  background-color: #ea580c;
 }
 
 .status-section {

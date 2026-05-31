@@ -22,7 +22,7 @@
   /* 控制流颜色常量 */
   --color-control-flow: #C7443C;
   /* 地址流颜色常量 */
-  --color-address-flow: #F5C542;
+  --color-address-flow: #E8913A;
 }
 
 @media (max-width: 1400px) {

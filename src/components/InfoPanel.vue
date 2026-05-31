@@ -566,4 +566,41 @@ const formatValue = (value: string): string => {
     opacity: 0.5;
   }
 }
+
+@media (max-width: 992px) {
+  .info-panel {
+    min-height: auto;
+    height: auto;
+    max-height: none;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel-header {
+    padding: 0.5rem 0.75rem;
+    flex-shrink: 0;
+  }
+
+  .panel-content {
+    flex: none;
+    overflow-y: visible;
+    padding: 0.5rem;
+  }
+
+  .register-list {
+    max-height: none;
+  }
+
+  .basic-info,
+  .pipeline-flow,
+  .control-signals,
+  .register-section,
+  .runtime-status {
+    font-size: 0.75rem;
+  }
+
+  .quick-actions {
+    padding: 0.75rem 0;
+  }
+}
 </style>

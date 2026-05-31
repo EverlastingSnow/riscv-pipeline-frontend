@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { usePipelineStore } from '../stores/pipeline';
-import { Upload, Play, FileCode, AlertCircle, CheckCircle, Minimize2, Maximize2 } from 'lucide-vue-next';
+import { Upload, Play, FileCode, AlertCircle, CheckCircle } from 'lucide-vue-next';
 
 const pipelineStore = usePipelineStore();
 
@@ -23,21 +23,10 @@ const isDragging = ref(false);
 const compileStatus = ref<'idle' | 'compiling' | 'success' | 'error'>('idle');
 const compileError = ref('');
 const uploadedFileName = ref('');
-const isExpanded = ref(true);
-
-const props = defineProps<{
-  expanded?: boolean;
-}>();
 
 const emit = defineEmits<{
   (e: 'compiled'): void;
-  (e: 'expand-change', value: boolean): void;
 }>();
-
-function updateExpanded(value: boolean) {
-  isExpanded.value = value;
-  emit('expand-change', value);
-}
 
 async function compileAndLoad() {
   if (compileStatus.value === 'compiling') return;
@@ -129,28 +118,18 @@ function resetCode() {
   compileStatus.value = 'idle';
   compileError.value = '';
 }
-
-function toggleExpand() {
-  updateExpanded(!isExpanded.value);
-}
 </script>
 
 <template>
-  <div class="compact-editor-panel" :class="{ 'expanded': isExpanded }">
+  <div class="compact-editor-panel">
     <div class="editor-header">
       <div class="header-left">
         <FileCode class="w-4 h-4 text-blue-500" />
         <span class="header-title">汇编代码编辑器</span>
       </div>
-      <div class="header-actions">
-        <button @click="toggleExpand" class="expand-btn" :title="isExpanded ? '缩小' : '展开'">
-          <Minimize2 v-if="isExpanded" class="w-3 h-3" />
-          <Maximize2 v-else class="w-3 h-3" />
-        </button>
-      </div>
     </div>
 
-    <div v-show="isExpanded" class="editor-body">
+    <div class="editor-body">
       <div
         class="editor-area"
         :class="{ 'drag-over': isDragging }"
@@ -184,7 +163,7 @@ function toggleExpand() {
             class="hidden"
           />
         </label>
-        <button @click="resetCode" class="reset-btn">重置</button>
+        <button @click="resetCode" class="reset-btn">重置代码</button>
         <button
           @click="compileAndLoad"
           class="compile-btn"
@@ -211,16 +190,13 @@ function toggleExpand() {
 <style scoped>
 .compact-editor-panel {
   background: white;
-  border-bottom: 0.0625rem solid #e5e7eb;
-  flex-shrink: 0;
-  height: 3.25rem;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+  width: 100%;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  transition: height 0.3s ease;
-}
-
-.compact-editor-panel.expanded {
   height: 100%;
 }
 
@@ -231,6 +207,7 @@ function toggleExpand() {
   padding: 0.5rem 0.75rem;
   border-bottom: 0.0625rem solid #e5e7eb;
   background: #f9fafb;
+  flex-shrink: 0;
 }
 
 .header-left {
@@ -242,28 +219,6 @@ function toggleExpand() {
 .header-title {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: #374151;
-}
-
-.header-actions {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.expand-btn {
-  padding: 0.25rem;
-  border: none;
-  border-radius: 0.25rem;
-  background: transparent;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #6b7280;
-}
-
-.expand-btn:hover {
-  background: #e5e7eb;
   color: #374151;
 }
 
@@ -306,7 +261,7 @@ function toggleExpand() {
   line-height: 1.4;
   outline: none;
   background: #fefefe;
-  white-space: nowrap;      /* 不自动换行 */
+  white-space: nowrap;
   overflow-x: auto;
 }
 
@@ -413,6 +368,7 @@ function toggleExpand() {
   align-items: flex-start;
   gap: 0.375rem;
   font-size: 0.6875rem;
+  flex-shrink: 0;
 }
 
 .status-bar.success {
@@ -436,18 +392,61 @@ function toggleExpand() {
   word-break: break-all;
 }
 
-.collapsed-indicator {
-  display: flex;
-  align-items: center;
-  gap: 0.375rem;
-  padding: 0.5rem 0.75rem;
-  color: #6b7280;
-  font-size: 0.75rem;
-  cursor: pointer;
+@media (max-width: 992px) {
+  .compact-editor-panel {
+    min-height: auto;
+    height: auto;
+    max-height: none;
+    padding-bottom: 0;
+  }
+
+  .editor-header {
+    padding: 0.4rem 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .header-title {
+    font-size: 0.75rem;
+  }
+
+  .editor-body {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+    flex: 1;
+  }
+
+  .editor-area {
+    flex: none;
+    min-height: 12rem;
+    height: auto;
+    overflow-y: visible;
+  }
+
+  .code-textarea {
+    min-height: 12rem;
+    height: auto;
+  }
+
+  .action-bar {
+    flex-shrink: 0;
+    min-height: 3rem;
+    padding: 0.5rem 0.75rem;
+    position: relative;
+    background: #f9fafb;
+    border-top: 0.0625rem solid #e5e7eb;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
 }
 
-.collapsed-indicator:hover {
-  background: #f3f4f6;
-  color: #374151;
+@media (max-width: 576px) {
+  .action-bar {
+    min-height: 2.5rem;
+    padding: 0.375rem 0.5rem;
+    flex-wrap: wrap;
+  }
 }
 </style>

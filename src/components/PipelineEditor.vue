@@ -51,6 +51,7 @@ interface ConnectionData {
   wordOffset?: { x: number; y: number };
   bendOffset?: number;
   editable?: boolean;
+  pathStyle?: 'auto' | 'down-left' | 'right-up';
 }
 
 const initialModules: ModuleData[] = [
@@ -108,7 +109,7 @@ const initialConnections: ConnectionData[] = [
   //EX到DataMem
   { id: 'DataMem_wen', source: 'executeUnit', target: 'dataMEM', type: 'data', label: 'DataMem_wen', sourceOffset: { x: 5, y: 120 }, targetOffset: { x: 5, y: 0 }, arrowDirection: 'bottom', wordOffset: {x: 0, y: 0}},  
   { id: 'DataMem_addr', source: 'executeUnit', target: 'dataMEM', type: 'data', label: 'DataMem_addr', sourceOffset: { x: 35, y: 120 }, targetOffset: { x: 35, y: 0 }, arrowDirection: 'bottom', wordOffset: {x: 0, y: 20}},
-  { id: 'DataMem_rdata', source: 'dataMEM', target: 'memoryUnit', type: 'data', label: 'DataMem_rdata', sourceOffset: { x: 60, y: 0 }, targetOffset: { x: 0, y: 100 }, arrowDirection: 'right', wordOffset: {x: -20, y: 10}},
+  { id: 'DataMem_rdata', source: 'dataMEM', target: 'memoryUnit', type: 'data', label: 'DataMem_rdata', sourceOffset: { x: 120, y: 20 }, targetOffset: { x:20, y: 120 }, arrowDirection: 'right', wordOffset: {x: -20, y: 10}, pathStyle: 'right-up'},
   { id: 'DataMem_wdata', source: 'executeUnit', target: 'dataMEM', type: 'data', label: 'DataMem_wdata', sourceOffset: { x: 65, y: 120 }, targetOffset: { x: 65, y: 0 }, arrowDirection: 'bottom', wordOffset: {x: 0, y: -20}},
 
   // EX/MEM
@@ -120,9 +121,9 @@ const initialConnections: ConnectionData[] = [
   { id: 'WB_info', source: 'writeBackStage', target: 'writeBackUnit', type: 'data', label: 'MEM_info', sourceOffset: { x: 55, y: STAGE_MID }, targetOffset: { x: 0, y: 60 }, arrowDirection: 'right', wordOffset: {x: 0, y: -5}},
 
   //WB到Reg File
-  { id: 'wb_en', source: 'writeBackUnit', target: 'regFile', type: 'data', label: 'wb_en', sourceOffset: { x: 0, y: 120 }, targetOffset: { x: 120, y: 70 }, arrowDirection: 'left', wordOffset: {x: 0, y: 0}},
-  { id: 'wb_raddr', source: 'writeBackUnit', target: 'regFile', type: 'data', label: 'wb_raddr', sourceOffset: { x: 20, y: 120 }, targetOffset: { x: 120, y: 90 }, arrowDirection: 'left', wordOffset: {x: 20, y: 10}, bendOffset: 40},
-  { id: 'wb_rdata', source: 'writeBackUnit', target: 'regFile', type: 'data', label: 'wb_rdata', sourceOffset: { x: 40, y: 120 }, targetOffset: { x: 120, y: 110 }, arrowDirection: 'left', wordOffset: {x: 40, y: 20}, bendOffset: 80},
+  { id: 'wb_en', source: 'writeBackUnit', target: 'regFile', type: 'data', label: 'wb_en', sourceOffset: { x: 20, y: 120 }, targetOffset: { x: 120, y: 70 }, arrowDirection: 'left', wordOffset: {x: 0, y: 0}, pathStyle: 'down-left'},
+  { id: 'wb_raddr', source: 'writeBackUnit', target: 'regFile', type: 'data', label: 'wb_raddr', sourceOffset: { x: 40, y: 120 }, targetOffset: { x: 120, y: 90 }, arrowDirection: 'left', wordOffset: {x: 20, y: 10}, pathStyle: 'down-left'},
+  { id: 'wb_rdata', source: 'writeBackUnit', target: 'regFile', type: 'data', label: 'wb_rdata', sourceOffset: { x: 60, y: 120 }, targetOffset: { x: 120, y: 110 }, arrowDirection: 'left', wordOffset: {x: 40, y: 20}, pathStyle: 'down-left'},
   //ctrl到fetchUnit
   { id: 'fetchUnit_allow_to_go', source: 'ctrl', target: 'fetchUnit', type: 'control', label: 'fetchUnit_allow_to_go', sourceOffset: { x: 20, y: CTRL_HEIGHT }, targetOffset: { x: 20, y: 0 }, arrowDirection: 'bottom'},
 
@@ -198,6 +199,16 @@ const generatePath = (connection: ConnectionData) => {
   const endY = endModule.y + connection.targetOffset.y;
 
   const bendOffset = connection.bendOffset || 0;
+  const pathStyle = connection.pathStyle || 'auto';
+
+  if (pathStyle === 'down-left') {
+    return `M ${startX} ${startY} L ${startX} ${endY} L ${endX} ${endY}`;
+  }
+
+  if (pathStyle === 'right-up') {
+    return `M ${startX} ${startY} L ${endX} ${startY} L ${endX} ${endY}`;
+  }
+
   const midX = (startX + endX + bendOffset) / 2;
   return `M ${startX} ${startY} L ${midX} ${startY} L ${midX} ${endY} L ${endX} ${endY}`;
 };
@@ -235,9 +246,24 @@ const getPathMidPoint = (connection: ConnectionData) => {
   const startY = startModule.y + connection.sourceOffset.y;
   const endX = endModule.x + connection.targetOffset.x;
   const endY = endModule.y + connection.targetOffset.y;
-  
+
   const wordOffset = connection.wordOffset || { x: 0, y: 0 };
-  
+  const pathStyle = connection.pathStyle || 'auto';
+
+  if (pathStyle === 'down-left') {
+    return {
+      x: startX + wordOffset.x,
+      y: (startY + endY) / 2 + wordOffset.y
+    };
+  }
+
+  if (pathStyle === 'right-up') {
+    return {
+      x: (startX + endX) / 2 + wordOffset.x,
+      y: startY + wordOffset.y
+    };
+  }
+
   return { 
     x: (startX + endX) / 2 + wordOffset.x, 
     y: (startY + endY) / 2 + wordOffset.y 
@@ -837,6 +863,7 @@ onUnmounted(() => {
   display: block;
   transform-origin: 0 0;
   transition: transform 0.1s ease-out;
+  background: #f8f9fa;
 }
 
 .module-group {
