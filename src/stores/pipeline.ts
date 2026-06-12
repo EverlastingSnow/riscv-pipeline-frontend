@@ -3,6 +3,13 @@ import { ref, computed } from 'vue';
 import type { CPUState, RegisterData, ALUData, ControlSignalsData, ModalType, DifftestConfig, TeachingScenario, CompareResult, TeachingTest } from '../types';
 import { mockCPUState, mockRegisters, mockALUData, mockControlSignals } from '../data/mockData';
 
+function safeJsonParse(raw: string): any {
+  const processed = raw.replace(/:\s*(-?\d{16,})/g, (_match, numStr) => {
+    return ': "' + numStr + '"';
+  });
+  return JSON.parse(processed);
+}
+
 const WS_URL = `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws`;
 
 interface PipelineSignals {
@@ -18,6 +25,18 @@ interface PipelineSignals {
   datamem: any;
   exc_ctrl: any;
   forward: any;
+  // ★ 中断与异常教学演示新增字段
+  csr?: {
+    mtvec: string;
+    mepc: string;
+    mcause: string;
+    mtval: string;
+    mstatus: string;
+    mie: string;
+    mip: string;
+  };
+  trap_taken?: boolean;
+  interrupt_taken?: boolean;
 }
 
 export const usePipelineStore = defineStore('pipeline', () => {
@@ -51,6 +70,11 @@ const signals = ref<PipelineSignals | null>(null);
   const prev_id_ex_valid = ref(false);
   const prev_ex_mem_valid = ref(false);
   const prev_mem_wb_valid = ref(false);
+
+  // ★ 中断与异常演示：CSR 状态、Trap 类型、编辑器代码
+  const csrState = ref<PipelineSignals['csr'] | null>(null);
+  const lastTrapType = ref<'none' | 'interrupt' | 'exception'>('none');
+  const editorCode = ref<string>('');
 
   const teachingScenarios: TeachingScenario[] = [
     { id: 1, name: '场景1: 寄存器写', description: '学习 RegWrite 信号', signals: ['RegWrite'] },
@@ -102,7 +126,7 @@ const signals = ref<PipelineSignals | null>(null);
 
     ws.onmessage = (event) => {
       try {
-        const data = JSON.parse(event.data);
+        const data = safeJsonParse(event.data);
         // console.log('Backend data received:', JSON.stringify(data, null, 2));
 
         if (data.type === 'need_signal_input') {
@@ -144,7 +168,9 @@ const signals = ref<PipelineSignals | null>(null);
           if (data.registers) {
             const regList: RegisterData[] = data.registers.registers.map((r: any) => ({
               name: `x${r.addr}`,
-              value: '0x' + r.value.toString(16).toUpperCase().padStart(16, '0'),
+              value: typeof r.value === 'bigint' || (typeof r.value === 'string' && r.value.length > 15)
+                ? '0x' + BigInt(r.value).toString(16).toUpperCase().padStart(16, '0')
+                : '0x' + Number(r.value).toString(16).toUpperCase().padStart(16, '0'),
               type: 'general' as const
             }));
             registers.value = regList;
@@ -181,6 +207,18 @@ const signals = ref<PipelineSignals | null>(null);
 
   function updateStateFromSignals(sigs: any) {
     signals.value = sigs;
+
+    // ★ 中断与异常演示：解析 CSR 状态与 trap 类型
+    if (sigs.csr) {
+      csrState.value = sigs.csr;
+    }
+    if (sigs.interrupt_taken) {
+      lastTrapType.value = 'interrupt';
+    } else if (sigs.trap_taken) {
+      lastTrapType.value = 'exception';
+    } else {
+      lastTrapType.value = 'none';
+    }
 
     // 先清空高亮，产生闪烁效果
     const emptyFlows: { id: string, value: string }[] = [];
@@ -252,6 +290,11 @@ const signals = ref<PipelineSignals | null>(null);
         if (strVal.startsWith('0x') || strVal.startsWith('0X')) {
           return strVal.toUpperCase();
         }
+        if (/^-?\d{16,}$/.test(strVal)) {
+          try {
+            return '0x' + BigInt(strVal).toString(16).toUpperCase().padStart(1, '0');
+          } catch { return '0x0'; }
+        }
         const num = Number(strVal);
         if (isNaN(num)) return '0x0';
         return '0x' + num.toString(16).toUpperCase().padStart(1, '0');
@@ -279,6 +322,12 @@ const signals = ref<PipelineSignals | null>(null);
       if (typeof val === 'string') return val.startsWith('0x') ? val.toUpperCase() : '0x' + Number(val).toString(16).toUpperCase();
       return '0x' + Number(val).toString(16).toUpperCase();
     };
+
+    // 解析 ID/EX 当前指令（EX 阶段正在执行时：id_ex.valid 且 prev_id_ex_valid）
+    const idExInst = Number(sigs.id_ex?.inst) || 0;
+    const exuInstrKind = (idExInst !== 0) ? decodeInstruction(idExInst) : 'NOP';
+    const isExuCsr = /CSR(RW|RS|RC|RWI|RSI|RCI)$/.test(exuInstrKind);
+    const isExuMret = exuInstrKind === 'MRET';
 
     // InstMEM - 取指内存
     if (sigs.if_id?.allow_to_go) {
@@ -321,6 +370,28 @@ const signals = ref<PipelineSignals | null>(null);
       activeFlows.push({ id: 'ALU_op1', value: parseHex(sigs.id_ex?.src1_rdata) });
       activeFlows.push({ id: 'ALU_op2', value: parseHex(sigs.id_ex?.src2_rdata) });
       activeFlows.push({ id: 'ALU_result', value: parseHex(sigs.ex_mem?.alu_result) });
+    }
+
+    // ★ CSR 指令：EX 阶段 Execute Unit 读 CSR（旧值，作为 wb_value 回写寄存器），
+    //            同时写 CSR（addr / wdata / wen）
+    if (prev_id_ex_valid.value && isExuCsr) {
+      // id_ex.imm 是 hex 字符串（如 "0x305"），需要先 parseInt 解析
+      const immRaw = sigs.id_ex?.imm;
+      const csrAddr = immRaw ? (parseInt(String(immRaw), 16) & 0xFFF) : 0;
+      activeFlows.push({ id: 'csr_read',  value: '0x' + Number(sigs.ex_mem?.alu_result || 0).toString(16).toUpperCase() });
+      activeFlows.push({ id: 'csr_addr',  value: '0x' + csrAddr.toString(16).toUpperCase().padStart(3, '0') });
+      activeFlows.push({ id: 'csr_wdata', value: parseHex(sigs.id_ex?.src1_rdata) });
+      activeFlows.push({ id: 'csr_wen',   value: '1' });
+    }
+
+    // ★ MRET：EX 阶段读 mepc 作为跳转目标，PC ← mepc（最终由 IF 阶段 PC 寄存器接收）
+    if (prev_id_ex_valid.value && isExuMret) {
+      activeFlows.push({ id: 'mepc_to_pc', value: sigs.csr?.mepc || '0x0' });
+    }
+
+    // ★ Trap entry（IF 阶段 trap_taken / interrupt_taken）：读 mtvec 作为跳转目标
+    if (sigs.trap_taken || sigs.interrupt_taken) {
+      activeFlows.push({ id: 'mtvec_to_pc', value: sigs.csr?.mtvec || '0x0' });
     }
 
     // Execute Unit -> DataMEM
@@ -414,8 +485,8 @@ const signals = ref<PipelineSignals | null>(null);
       activeSignals.push({ id: 'memoryStage_allow_to_go', value: '1' });
     }
 
-    // 刷新信号
-    if (sigs.if_id?.taken || sigs.ex_mem?.branch_taken) {
+    // 刷新信号（branch_taken + trap/interrupt 都会 flush IF/ID、ID/EX）
+    if (sigs.if_id?.taken || sigs.ex_mem?.branch_taken || sigs.trap_taken || sigs.interrupt_taken) {
       activeSignals.push({ id: 'fetchUnit_do_flush', value: '1' });
       activeSignals.push({ id: 'decodeUnit_do_flush', value: '1' });
       activeSignals.push({ id: 'executeUnit_do_flush', value: '1' });
@@ -425,6 +496,16 @@ const signals = ref<PipelineSignals | null>(null);
     if (sigs.if_id?.taken) {
       activeSignals.push({ id: 'branch_taken', value: '1' });
       activeSignals.push({ id: 'branch_target', value: sigs.if_id.target || '0x0' });
+    }
+
+    // ★ 中断与异常演示：trap 跳转路径高亮
+    if (sigs.trap_taken || sigs.interrupt_taken) {
+      activeSignals.push({ id: 'fetchUnit_do_flush', value: '1' });
+      activeSignals.push({ id: 'decodeUnit_do_flush', value: '1' });
+      activeSignals.push({ id: 'executeUnit_do_flush', value: '1' });
+      activeSignals.push({ id: 'trap_taken_signal', value: '1' });
+      activeSignals.push({ id: 'trap_mcause', value: sigs.csr?.mcause || '0x0' });
+      activeSignals.push({ id: 'trap_mepc', value: sigs.csr?.mepc || '0x0' });
     }
 
     return activeSignals;
@@ -617,7 +698,21 @@ const signals = ref<PipelineSignals | null>(null);
       if (funct3 === 2) return 'SW';
       if (funct3 === 3) return 'SD';
     }
-    
+
+    if (opcode === 0x73) { // SYSTEM
+      if (inst === 0x00000073) return 'ECALL';
+      if (inst === 0x00100073) return 'EBREAK';
+      if (inst === 0x30200073) return 'MRET';
+      if (inst === 0x10500073) return 'WFI';
+      // funct3 区分 CSR 读写族
+      if (funct3 === 1) return 'CSRRW';
+      if (funct3 === 2) return 'CSRRS';
+      if (funct3 === 3) return 'CSRRC';
+      if (funct3 === 5) return 'CSRRWI';
+      if (funct3 === 6) return 'CSRRSI';
+      if (funct3 === 7) return 'CSRRCI';
+    }
+
     return baseName;
   }
 
@@ -922,11 +1017,21 @@ const signals = ref<PipelineSignals | null>(null);
   function setUserSignal(signalName: string, value: boolean | number) {
     userInputSignals.value.set(signalName, value);
     if (useBackend.value) {
-      sendCommand('set_user_signal', { 
-        signalName, 
-        value: Boolean(value) 
+      sendCommand('set_user_signal', {
+        signalName,
+        value: Boolean(value)
       });
     }
+  }
+
+  // ★ 中断与异常演示：触发软件中断（默认 bit 3 = MSIP）
+  function triggerInterrupt(bit: number = 3) {
+    sendCommand('trigger_interrupt', { bit });
+  }
+
+  // ★ 中断与异常演示：把预置代码塞到编辑器
+  function setEditorCode(code: string) {
+    editorCode.value = code;
   }
 
   function clearPendingSignalInput() {
@@ -998,6 +1103,12 @@ const signals = ref<PipelineSignals | null>(null);
     setUserSignal,
     clearPendingSignalInput,
     continueAfterDiff,
-    stopAfterDiff
+    stopAfterDiff,
+    // ★ 中断与异常演示
+    csrState,
+    lastTrapType,
+    editorCode,
+    triggerInterrupt,
+    setEditorCode
   };
 });

@@ -9,14 +9,27 @@ const pipelineStore = usePipelineStore();
 const registers = computed(() => pipelineStore.registers);
 
 const formatValue = (value: string | number): string => {
-  const num = typeof value === 'string' ? parseInt(value, 16) : value;
-  if (num === 0) return '0x0';
-  return '0x' + num.toString(16).toUpperCase();
+  if (!value || value === '0x' || value === '0X') return '0x0';
+  const strVal = typeof value === 'string' ? value : value.toString();
+  const hexVal = strVal.startsWith('0x') || strVal.startsWith('0X') ? strVal.slice(2) : strVal;
+  try {
+    const bigIntVal = BigInt('0x' + hexVal);
+    if (bigIntVal === BigInt(0)) return '0x0';
+    return '0x' + bigIntVal.toString(16).toUpperCase().padStart(1, '0');
+  } catch {
+    return strVal;
+  }
 };
 
 const hasValue = (value: string | number): boolean => {
-  const num = typeof value === 'string' ? parseInt(value, 16) : value;
-  return num !== 0;
+  if (!value || value === '0x' || value === '0X') return false;
+  const strVal = typeof value === 'string' ? value : value.toString();
+  const hexVal = strVal.startsWith('0x') || strVal.startsWith('0X') ? strVal.slice(2) : strVal;
+  try {
+    return BigInt('0x' + hexVal) !== BigInt(0);
+  } catch {
+    return false;
+  }
 };
 
 const registerAliases: Record<string, string> = {

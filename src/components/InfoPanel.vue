@@ -24,7 +24,13 @@ const getSignalClass = (signal: any) => {
 };
 
 const hasValue = (value: string): boolean => {
-  return parseInt(value, 16) !== 0;
+  if (!value || value === '0x' || value === '0X') return false;
+  const hexVal = value.startsWith('0x') || value.startsWith('0X') ? value.slice(2) : value;
+  try {
+    return BigInt('0x' + hexVal) !== BigInt(0);
+  } catch {
+    return false;
+  }
 };
 
 const registerAliases: Record<string, string> = {
@@ -38,9 +44,15 @@ const registerAliases: Record<string, string> = {
 };
 
 const formatValue = (value: string): string => {
-  const num = parseInt(value, 16);
-  if (num === 0) return '0x0';
-  return '0x' + num.toString(16).toUpperCase();
+  if (!value || value === '0x' || value === '0X') return '0x0';
+  const hexVal = value.startsWith('0x') || value.startsWith('0X') ? value.slice(2) : value;
+  try {
+    const bigIntVal = BigInt('0x' + hexVal);
+    if (bigIntVal === BigInt(0)) return '0x0';
+    return '0x' + bigIntVal.toString(16).toUpperCase().padStart(1, '0');
+  } catch {
+    return value;
+  }
 };
 </script>
 

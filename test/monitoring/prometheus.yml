@@ -1,0 +1,39 @@
+# Prometheus 配置文件
+# 用于监控 RISC-V Pipeline 前端服务器性能
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'riscv-pipeline-monitor'
+
+scrape_configs:
+  # 监控系统资源
+  - job_name: 'node'
+    static_configs:
+      - targets: ['localhost:9100']
+        labels:
+          service: 'riscv-pipeline-node'
+
+  # 监控应用性能
+  - job_name: 'riscv-pipeline-app'
+    static_configs:
+      - targets: ['localhost:8080']
+        labels:
+          service: 'riscv-pipeline-frontend'
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+
+  # 监控数据库（如果有）
+  - job_name: 'postgresql'
+    static_configs:
+      - targets: ['localhost:5432']
+        labels:
+          service: 'riscv-pipeline-db'
+
+  # 监控 Nginx（如果有反向代理）
+  - job_name: 'nginx'
+    static_configs:
+      - targets: ['localhost:9113']
+        labels:
+          service: 'nginx-proxy'

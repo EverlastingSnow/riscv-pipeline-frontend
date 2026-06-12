@@ -1,0 +1,23 @@
+{
+  "scenario_id": 1,
+  "name": "场景1: 寄存器写",
+  "description": "学习 RegWrite 信号",
+  "signals": ["RegWrite"],
+  "test_instructions": [
+    "ADDI x1, x0, 5",
+    "ADD x2, x1, x2",
+    "LW x3, 0(x1)",
+    "BEQ x0, x0, label"
+  ],
+  "expected_signals": {
+    "RegWrite": {
+      "ADDI": 1,
+      "ADD": 1,
+      "LW": 1,
+      "BEQ": 0
+    }
+  },
+  "test_code": "test_scenario1.asm",
+  "difficulty": "easy",
+  "estimated_time": "2分钟"
+}

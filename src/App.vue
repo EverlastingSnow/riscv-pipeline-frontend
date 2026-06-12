@@ -4,6 +4,7 @@ import { onMounted, onUnmounted } from 'vue';
 import PipelineEditor from './components/PipelineEditor.vue';
 import ControlPanel from './components/ControlPanel.vue';
 import RegisterModal from './components/RegisterModal.vue';
+import CsrModal from './components/CsrModal.vue';
 import AluModal from './components/AluModal.vue';
 import ControlSignalsModal from './components/ControlSignalsModal.vue';
 import DiffResultModal from './components/DiffResultModal.vue';
@@ -85,6 +86,7 @@ onUnmounted(() => {
     
     <!-- 弹窗组件 -->
     <RegisterModal />
+    <CsrModal />
     <AluModal />
     <ControlSignalsModal />
     <DiffResultModal />

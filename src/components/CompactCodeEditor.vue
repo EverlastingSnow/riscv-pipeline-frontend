@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { usePipelineStore } from '../stores/pipeline';
 import { Upload, Play, FileCode, AlertCircle, CheckCircle } from 'lucide-vue-next';
 
@@ -23,6 +23,14 @@ const isDragging = ref(false);
 const compileStatus = ref<'idle' | 'compiling' | 'success' | 'error'>('idle');
 const compileError = ref('');
 const uploadedFileName = ref('');
+
+// ★ 中断与异常演示：监听 store.editorCode 的变化，自动填入
+watch(() => pipelineStore.editorCode, (newCode) => {
+  if (newCode) {
+    code.value = newCode;
+    pipelineStore.editorCode = '';  // 清空，避免循环触发
+  }
+});
 
 const emit = defineEmits<{
   (e: 'compiled'): void;

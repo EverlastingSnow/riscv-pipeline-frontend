@@ -1,0 +1,53 @@
+{
+  "scenario_id": 4,
+  "name": "场景4: 分支控制",
+  "description": "学习 RegWrite + ALUSrc + MemRead + MemWrite + Branch",
+  "signals": ["RegWrite", "ALUSrc", "MemRead", "MemWrite", "Branch"],
+  "test_instructions": [
+    "BEQ x1, x2, label1",
+    "BNE x3, x4, label2",
+    "BLT x5, x6, label3",
+    "BGE x7, x8, label4",
+    "ADDI x9, x0, 5"
+  ],
+  "expected_signals": {
+    "RegWrite": {
+      "BEQ": 0,
+      "BNE": 0,
+      "BLT": 0,
+      "BGE": 0,
+      "ADDI": 1
+    },
+    "ALUSrc": {
+      "BEQ": 0,
+      "BNE": 0,
+      "BLT": 0,
+      "BGE": 0,
+      "ADDI": 1
+    },
+    "MemRead": {
+      "BEQ": 0,
+      "BNE": 0,
+      "BLT": 0,
+      "BGE": 0,
+      "ADDI": 0
+    },
+    "MemWrite": {
+      "BEQ": 0,
+      "BNE": 0,
+      "BLT": 0,
+      "BGE": 0,
+      "ADDI": 0
+    },
+    "Branch": {
+      "BEQ": 1,
+      "BNE": 1,
+      "BLT": 1,
+      "BGE": 1,
+      "ADDI": 0
+    }
+  },
+  "test_code": "test_scenario4.asm",
+  "difficulty": "hard",
+  "estimated_time": "5分钟"
+}

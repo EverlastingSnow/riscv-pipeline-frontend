@@ -74,6 +74,9 @@ const initialAuxiliaryModules: ModuleData[] = [
   { id: 'instMEM', name: 'instMEM', icon: HardDrive, x: 150, y: 370, width: 120, height: 120 },
   { id: 'dataMEM', name: 'Data Memory', icon: Database, x: 650, y: 370, width: 120, height: 120 },
   { id: 'ctrl', name: 'Control Unit', icon: Settings, x: 150, y: 0, width: CTRL_WIDTH, height: CTRL_HEIGHT },
+  // ★ 中断与异常演示：CSR 模块（横跨底部，宽度与 ctrl 对齐，便于 6 条线分散）
+  { id: 'csr', name: 'CSR (mtvec / mepc / mcause / mstatus / mie / mip)', icon: Settings,
+    x: 150, y: 640, width: 1120, height: 60, editable: false },
 ];
 
 const initialConnections: ConnectionData[] = [
@@ -81,8 +84,8 @@ const initialConnections: ConnectionData[] = [
 
   // instMEM相关 - 从fetchUnit右侧连到instMEM
   { id: 'instMEM_en', source: 'fetchUnit', target: 'instMEM', type: 'data', label: 'en', sourceOffset: { x: 20, y: 120 }, targetOffset: { x: 20, y: 0 }, arrowDirection: "bottom"},
-  { id: 'instMEM_addr', source: 'fetchUnit', target: 'instMEM', type: 'address', label: 'PC_next', sourceOffset: { x: 60, y: 120 }, targetOffset: { x: 60, y: 0 }, arrowDirection: "bottom"},
-  { id: 'instMEM_inst', source: 'instMEM', target: 'fetchUnit', type: 'data', label: 'inst', sourceOffset: { x: 100, y: 0 }, targetOffset: { x: 100, y: 120 }, arrowDirection: "top"},
+  { id: 'instMEM_addr', source: 'fetchUnit', target: 'instMEM', type: 'address', label: 'PC_next', sourceOffset: { x: 40, y: 120 }, targetOffset: { x: 40, y: 0 }, arrowDirection: "bottom", wordOffset: {x:0, y:20}},
+  { id: 'instMEM_inst', source: 'instMEM', target: 'fetchUnit', type: 'data', label: 'inst', sourceOffset: { x: 60, y: 0 }, targetOffset: { x: 60, y: 120 }, arrowDirection: "top"},
   
   // 取指到IF/ID - 从fetchUnit右侧连到decodeStage左侧
   { id: 'fetchUnit_PC', source: 'fetchUnit', target: 'decodeStage', type: 'data', label: 'PC', sourceOffset: { x: 120, y: 40 }, targetOffset: { x: 0, y: STAGE_MID } },
@@ -104,13 +107,13 @@ const initialConnections: ConnectionData[] = [
   { id: 'ID_EX_info', source: 'decodeUnit', target: 'executeStage', type: 'data', label: 'ID_info', sourceOffset: { x: 120, y: 60 }, targetOffset: { x: 0, y: STAGE_MID }, arrowDirection: 'right', wordOffset: {x: 0, y: -5}},
   { id: 'EX_info', source: 'executeStage', target: 'executeUnit', type: 'data', label: 'ID_info', sourceOffset: { x: 55, y: STAGE_MID }, targetOffset: { x: 0, y: 60 }, arrowDirection: 'right', wordOffset: {x: 0, y: -5}},
   { id: 'Forward_info', source: 'executeUnit', target: 'decodeUnit', type: 'data', label: 'Forward_info', sourceOffset: { x: 0, y: 95 }, targetOffset: { x: 120, y: 95 }, arrowDirection: 'right', wordOffset: {x: 0, y: 10}},
-  { id: 'interrupt', source: 'executeUnit', target: 'decodeUnit', type: 'data', label: 'interrupt', sourceOffset: { x: 0, y: 20 }, targetOffset: { x: 120, y: 20 }, arrowDirection: 'right', wordOffset: {x: 0, y: -5}},
+  // { id: 'interrupt', source: 'executeUnit', target: 'decodeUnit', type: 'data', label: 'interrupt', sourceOffset: { x: 0, y: 20 }, targetOffset: { x: 120, y: 20 }, arrowDirection: 'right', wordOffset: {x: 0, y: -5}},
 
   //EX到DataMem
   { id: 'DataMem_wen', source: 'executeUnit', target: 'dataMEM', type: 'data', label: 'DataMem_wen', sourceOffset: { x: 5, y: 120 }, targetOffset: { x: 5, y: 0 }, arrowDirection: 'bottom', wordOffset: {x: 0, y: 0}},  
-  { id: 'DataMem_addr', source: 'executeUnit', target: 'dataMEM', type: 'data', label: 'DataMem_addr', sourceOffset: { x: 35, y: 120 }, targetOffset: { x: 35, y: 0 }, arrowDirection: 'bottom', wordOffset: {x: 0, y: 20}},
+  { id: 'DataMem_addr', source: 'executeUnit', target: 'dataMEM', type: 'data', label: 'DataMem_addr', sourceOffset: { x: 25, y: 120 }, targetOffset: { x: 25, y: 0 }, arrowDirection: 'bottom', wordOffset: {x: 0, y: 20}},
   { id: 'DataMem_rdata', source: 'dataMEM', target: 'memoryUnit', type: 'data', label: 'DataMem_rdata', sourceOffset: { x: 120, y: 20 }, targetOffset: { x:20, y: 120 }, arrowDirection: 'right', wordOffset: {x: -20, y: 10}, pathStyle: 'right-up'},
-  { id: 'DataMem_wdata', source: 'executeUnit', target: 'dataMEM', type: 'data', label: 'DataMem_wdata', sourceOffset: { x: 65, y: 120 }, targetOffset: { x: 65, y: 0 }, arrowDirection: 'bottom', wordOffset: {x: 0, y: -20}},
+  { id: 'DataMem_wdata', source: 'executeUnit', target: 'dataMEM', type: 'data', label: 'DataMem_wdata', sourceOffset: { x: 45, y: 120 }, targetOffset: { x: 45, y: 0 }, arrowDirection: 'bottom', wordOffset: {x: 0, y: -20}},
 
   // EX/MEM
   { id: 'EX_MEM_info', source: 'executeUnit', target: 'memoryStage', type: 'data', label: 'EX_info', sourceOffset: { x: 120, y: 60 }, targetOffset: { x: 0, y: STAGE_MID }, arrowDirection: 'right', wordOffset: {x: 0, y: -5}},
@@ -147,7 +150,32 @@ const initialConnections: ConnectionData[] = [
   { id: 'decodeInfo', source: 'decodeUnit', target: 'ctrl', type: 'data', label: 'decodeInfo', sourceOffset: { x: 50, y: 0 }, targetOffset: { x: 300, y: CTRL_HEIGHT }, arrowDirection: 'top', wordOffset: {x: 0, y: -5}},  
   { id: 'executeInfo', source: 'executeUnit', target: 'ctrl', type: 'data', label: 'executeInfo', sourceOffset: { x: 50, y: 0 }, targetOffset: { x: 550, y: CTRL_HEIGHT }, arrowDirection: 'top', wordOffset: {x: 0, y: -5}},  
   { id: 'memoryInfo', source: 'memoryUnit', target: 'ctrl', type: 'data', label: 'memoryInfo', sourceOffset: { x: 50, y: 0 }, targetOffset: { x: 800, y: CTRL_HEIGHT }, arrowDirection: 'top', wordOffset: {x: 0, y: -5}},  
-  { id: 'writeBackInfo', source: 'writeBackUnit', target: 'ctrl', type: 'data', label: 'writeBackInfo', sourceOffset: { x: 50, y: 0 }, targetOffset: { x: 1050, y: CTRL_HEIGHT }, arrowDirection: 'top', wordOffset: {x: 0, y: -5}},  
+  { id: 'writeBackInfo', source: 'writeBackUnit', target: 'ctrl', type: 'data', label: 'writeBackInfo', sourceOffset: { x: 50, y: 0 }, targetOffset: { x: 1050, y: CTRL_HEIGHT }, arrowDirection: 'top', wordOffset: {x: 0, y: -5}},
+
+  // ★ 中断与异常演示：CSR 数据/地址通路（与后端 CSR 真实数据流一致）
+  // CSR 指令（CSRRW/CSRRS/CSRRC/...）发生在 EX 阶段：Execute Unit 读写 CSR
+  { id: 'csr_addr', source: 'executeUnit', target: 'csr', type: 'data',
+    label: 'csr_addr', sourceOffset: { x: 65, y: 120 },
+    targetOffset: { x: 565, y: 0 }, arrowDirection: 'bottom', wordOffset: {x: 0, y: 0} },
+  { id: 'csr_wdata', source: 'executeUnit', target: 'csr', type: 'data',
+    label: 'csr_wdata', sourceOffset: { x: 85, y: 120 },
+    targetOffset: { x: 585, y: 0 }, arrowDirection: 'bottom', wordOffset: {x: 0, y: 25} },
+  { id: 'csr_wen', source: 'executeUnit', target: 'csr', type: 'data',
+    label: 'csr_wen', sourceOffset: { x: 105, y: 120 },
+    targetOffset: { x: 605, y: 0 }, arrowDirection: 'bottom', wordOffset: {x: 0, y: 40} },
+  { id: 'csr_read', source: 'csr', target: 'executeUnit', type: 'data',
+    label: 'csr_rdata (old)', sourceOffset: { x: 620, y: 0 },
+    targetOffset: { x: 120, y: 120 }, arrowDirection: 'top', wordOffset: {x: 10, y: 55}},
+
+  // ★ MRET（EX 阶段）：读 mepc 写 branch_target → PC ← mepc
+  { id: 'mepc_to_pc', source: 'csr', target: 'fetchUnit', type: 'address',
+    label: 'mepc → PC (mret)', sourceOffset: { x: 80, y: 0 },
+    targetOffset: { x: 80, y: 120 }, arrowDirection: 'top', wordOffset: {x: -30, y: 160}},
+
+  // ★ Trap entry（IF 阶段 trap_taken / interrupt_taken）：读 mtvec → PC ← mtvec
+  { id: 'mtvec_to_pc', source: 'csr', target: 'fetchUnit', type: 'address',
+    label: 'mtvec → PC (trap)', sourceOffset: { x: 100, y: 0 },
+    targetOffset: { x: 100, y: 120 }, arrowDirection: 'top', wordOffset: {x: 30, y: 180}},
 ];
 
 
@@ -312,6 +340,8 @@ const handleModuleClick = (moduleId: string) => {
     pipelineStore.openModal('pipelineRegister', 'ex_mem');
   } else if (moduleId === 'writeBackUnit') {
     pipelineStore.openModal('pipelineRegister', 'mem_wb');
+  } else if (moduleId === 'csr') {
+    pipelineStore.openModal('csr');
   } else if (moduleId === 'decodeStage') {
     pipelineStore.openModal('pipelineRegister', 'if_id');
   } else if (moduleId === 'executeStage') {
@@ -497,7 +527,56 @@ onUnmounted(() => {
           >
             <path d="M 0 0 L 10 5 L 0 10 z" transform="rotate(90 5 5)" fill="#94A3B8" />
           </marker>
-          
+
+          <!-- Address 普通 marker（非高亮时使用，与 address-highlight-* 颜色对应）-->
+          <marker
+            id="arrow-address-right"
+            viewBox="0 0 10 10"
+            refX="9"
+            refY="5"
+            markerWidth="6"
+            markerHeight="6"
+            orient="auto"
+          >
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#10B981" />
+          </marker>
+
+          <marker
+            id="arrow-address-left"
+            viewBox="0 0 10 10"
+            refX="9"
+            refY="5"
+            markerWidth="6"
+            markerHeight="6"
+            orient="auto-start-reverse"
+          >
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#10B981" />
+          </marker>
+
+          <marker
+            id="arrow-address-top"
+            viewBox="0 0 10 10"
+            refX="5"
+            refY="1"
+            markerWidth="6"
+            markerHeight="6"
+            orient="auto"
+          >
+            <path d="M 0 0 L 10 5 L 0 10 z" transform="rotate(-90 5 5)" fill="#10B981" />
+          </marker>
+
+          <marker
+            id="arrow-address-bottom"
+            viewBox="0 0 10 10"
+            refX="5"
+            refY="9"
+            markerWidth="6"
+            markerHeight="6"
+            orient="auto"
+          >
+            <path d="M 0 0 L 10 5 L 0 10 z" transform="rotate(90 5 5)" fill="#10B981" />
+          </marker>
+
           <marker
             id="arrow-highlight-right"
             viewBox="0 0 10 10"

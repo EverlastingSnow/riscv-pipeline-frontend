@@ -1,0 +1,27 @@
+{
+  "scenario_id": 2,
+  "name": "场景2: 操作数选择",
+  "description": "学习 RegWrite + ALUSrc",
+  "signals": ["RegWrite", "ALUSrc"],
+  "test_instructions": [
+    "ADDI x1, x0, 10",
+    "ADD x2, x1, x1",
+    "LW x3, 0(x0)",
+    "ADDI x4, x0, 20"
+  ],
+  "expected_signals": {
+    "RegWrite": {
+      "ADDI": 1,
+      "ADD": 1,
+      "LW": 1
+    },
+    "ALUSrc": {
+      "ADDI": 1,
+      "ADD": 0,
+      "LW": 1
+    }
+  },
+  "test_code": "test_scenario2.asm",
+  "difficulty": "medium",
+  "estimated_time": "3分钟"
+}

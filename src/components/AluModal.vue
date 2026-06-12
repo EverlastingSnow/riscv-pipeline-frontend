@@ -23,6 +23,15 @@ const operationType = computed(() => {
   if (op === 'LB' || op === 'LH' || op === 'LW' || op === 'LBU' || op === 'LHU') return '加载';
   return op;
 });
+
+function hexToBinary(hex: string): string {
+  if (!hex || hex === '0x0' || hex === '0X0') {
+    return '0'.padStart(64, '0');
+  }
+  const hexVal = hex.startsWith('0x') || hex.startsWith('0X') ? hex.slice(2) : hex;
+  const bigIntVal = BigInt('0x' + hexVal);
+  return bigIntVal.toString(2).padStart(64, '0');
+}
 </script>
 
 <template>
@@ -79,15 +88,15 @@ const operationType = computed(() => {
         <div class="binary-grid">
           <div class="binary-item">
             <span class="binary-label">Operand1</span>
-            <span class="binary-value mono">{{ parseInt(aluData.operand1).toString(2).padStart(32, '0') }}</span>
+            <span class="binary-value mono">{{ hexToBinary(aluData.operand1) }}</span>
           </div>
           <div class="binary-item">
             <span class="binary-label">Operand2</span>
-            <span class="binary-value mono">{{ parseInt(aluData.operand2).toString(2).padStart(32, '0') }}</span>
+            <span class="binary-value mono">{{ hexToBinary(aluData.operand2) }}</span>
           </div>
           <div class="binary-item result">
             <span class="binary-label">Result</span>
-            <span class="binary-value mono">{{ parseInt(aluData.result).toString(2).padStart(32, '0') }}</span>
+            <span class="binary-value mono">{{ hexToBinary(aluData.result) }}</span>
           </div>
         </div>
       </div>

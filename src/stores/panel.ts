@@ -91,6 +91,16 @@ const defaultPanels: { leftPanels: PanelState[]; rightPanels: PanelState[] } = {
       isExpanded: false,
       order: 1,
       componentName: 'InfoPanel'
+    },
+    {
+      id: 'right-interrupt-demo',
+      title: '中断与异常演示',
+      icon: 'zap',
+      position: 'right',
+      isActive: false,
+      isExpanded: false,
+      order: 2,
+      componentName: 'InterruptDemoPanel'
     }
   ]
 };

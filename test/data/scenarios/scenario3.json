@@ -1,0 +1,44 @@
+{
+  "scenario_id": 3,
+  "name": "场景3: 内存访问",
+  "description": "学习 RegWrite + ALUSrc + MemRead + MemWrite",
+  "signals": ["RegWrite", "ALUSrc", "MemRead", "MemWrite"],
+  "test_instructions": [
+    "SW x1, 0(x2)",
+    "LW x3, 0(x2)",
+    "ADDI x4, x3, 1",
+    "SB x5, 0(x6)",
+    "LH x7, 0(x6)"
+  ],
+  "expected_signals": {
+    "RegWrite": {
+      "SW": 0,
+      "LW": 1,
+      "ADDI": 1,
+      "SB": 0,
+      "LH": 1
+    },
+    "ALUSrc": {
+      "SW": 1,
+      "LW": 1,
+      "ADDI": 1,
+      "SB": 1,
+      "LH": 1
+    },
+    "MemRead": {
+      "SW": 0,
+      "LW": 1,
+      "SB": 0,
+      "LH": 1
+    },
+    "MemWrite": {
+      "SW": 1,
+      "LW": 0,
+      "SB": 1,
+      "LH": 0
+    }
+  },
+  "test_code": "test_scenario3.asm",
+  "difficulty": "medium",
+  "estimated_time": "4分钟"
+}

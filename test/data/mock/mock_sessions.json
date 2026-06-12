@@ -1,0 +1,87 @@
+{
+  "mock_sessions": [
+    {
+      "session_id": "session_001",
+      "user_id": "user_001",
+      "actions": [
+        {
+          "type": "load_elf",
+          "file": "test_arith.elf",
+          "timestamp": 1640000000000
+        },
+        {
+          "type": "step",
+          "count": 10,
+          "timestamp": 1640000001000
+        },
+        {
+          "type": "get_signals",
+          "timestamp": 1640000002000
+        },
+        {
+          "type": "get_registers",
+          "timestamp": 1640000003000
+        }
+      ]
+    },
+    {
+      "session_id": "session_002",
+      "user_id": "user_002",
+      "actions": [
+        {
+          "type": "compile",
+          "code": "test_medium.asm",
+          "timestamp": 1640000000000
+        },
+        {
+          "type": "step",
+          "count": 20,
+          "timestamp": 1640000001000
+        },
+        {
+          "type": "pause",
+          "timestamp": 1640000002000
+        },
+        {
+          "type": "resume",
+          "timestamp": 1640000003000
+        }
+      ]
+    },
+    {
+      "session_id": "session_003",
+      "user_id": "user_003",
+      "actions": [
+        {
+          "type": "load_elf",
+          "file": "test_mem.elf",
+          "timestamp": 1640000000000
+        },
+        {
+          "type": "step",
+          "count": 15,
+          "timestamp": 1640000001000
+        },
+        {
+          "type": "reset",
+          "timestamp": 1640000002000
+        },
+        {
+          "type": "load_elf",
+          "file": "test_branch.elf",
+          "timestamp": 1640000003000
+        }
+      ]
+    }
+  ],
+  "user_behavior_distribution": {
+    "compile": 0.2,
+    "stats_query": 0.3,
+    "step": 0.25,
+    "load_elf": 0.1,
+    "reset": 0.05,
+    "other": 0.1
+  },
+  "concurrent_user_count": 100,
+  "test_duration_seconds": 300
+}

@@ -97,7 +97,7 @@ export interface ControlSignalsData {
 }
 
 // 弹窗类型
-export type ModalType = 'register' | 'alu' | 'control' | 'diffResult' | 'diffConfig' | 'halted' | 'pipelineRegister' | null;
+export type ModalType = 'register' | 'alu' | 'control' | 'diffResult' | 'diffConfig' | 'halted' | 'pipelineRegister' | 'csr' | null;
 
 // 流水线寄存器信息
 export interface PipelineRegisterData {

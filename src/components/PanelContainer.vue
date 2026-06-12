@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, defineAsyncComponent } from 'vue';
 import { usePanelStore } from '../stores/panel';
 import PanelTabBar from './PanelTabBar.vue';
 import DockingPanel from './DockingPanel.vue';
@@ -24,7 +24,8 @@ const componentMap: Record<string, any> = {
   'CompactPipelineInfo': CompactPipelineInfo,
   'CompactCodeEditor': CompactCodeEditor,
   'InfoPanel': InfoPanel,
-  'DifftestPanel': DifftestPanel
+  'DifftestPanel': DifftestPanel,
+  'InterruptDemoPanel': defineAsyncComponent(() => import('./InterruptDemoPanel.vue'))
 };
 
 function getComponent(componentName: string) {
