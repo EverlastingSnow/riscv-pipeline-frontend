@@ -8,7 +8,8 @@ import {
   Target,
   FileCode,
   Play,
-  X
+  X,
+  ListChecks
 } from 'lucide-vue-next';
 
 const pipelineStore = usePipelineStore();
@@ -317,6 +318,68 @@ function disableConfig() {
         >
           确认配置
         </button>
+      </div>
+
+      <!-- 使用步骤说明 -->
+      <div class="usage-section">
+        <div class="section-label">
+          <ListChecks class="section-icon" />
+          <span>使用步骤</span>
+        </div>
+        <p class="usage-intro">
+          差分测试：把"用户填入的信号"当作参考答案，运行时每个 step 都会和模拟器实
+          际生成的信号比对，不一致就弹窗告警。
+        </p>
+        <ol class="usage-list">
+          <li>
+            <span class="step-tag">1</span>
+            <span class="step-text">
+              <b>选教学场景</b>：4 个递进场景分别覆盖
+              <code>RegWrite</code> / <code>ALUSrc</code> / <code>MemRead+MemWrite</code> /
+              <code>Branch</code>，或选"自由模式"自定义。
+            </span>
+          </li>
+          <li>
+            <span class="step-tag">2</span>
+            <span class="step-text">
+              <b>选测试用例</b>：下方列表按场景过滤，每个教学测试内置了一组正确信号；
+              绿色高亮的 ELF 测试是从 riscv-tests 编译的真实用例（更严格）。
+            </span>
+          </li>
+          <li>
+            <span class="step-tag">3</span>
+            <span class="step-text">
+              <b>加载并运行</b>：自动加载测试程序并启用差分，状态条变为"已启用"。
+              未选测试时也可手动点"确认配置"以当前编辑器代码运行。
+            </span>
+          </li>
+          <li>
+            <span class="step-tag">4</span>
+            <span class="step-text">
+              <b>单步 / 连续执行</b>：每条指令的"信号预测"会和模拟器实
+              际生成的信号比对。控制信号栏里，被勾选的信号会高亮显示参考答案。
+            </span>
+          </li>
+          <li>
+            <span class="step-tag">5</span>
+            <span class="step-text">
+              <b>查看不匹配</b>：若预测 ≠ 实际，自动弹出
+              <code>Diff 结果</code>对话框，列出 PC、参考信号、实际信号。
+              点"跳到该指令"可在流水线视图定位。
+            </span>
+          </li>
+          <li>
+            <span class="step-tag">6</span>
+            <span class="step-text">
+              <b>完成后禁用</b>：点红色"禁用"按钮恢复普通运行模式。
+            </span>
+          </li>
+        </ol>
+        <div class="usage-tip">
+          <b>教学要点</b>：从场景 1 开始，逐步打开更多信号，可以观察 5 级流水线
+          中信号 valid 的"逐拍推进"——同一拍下不同信号可能属于不同指令，靠
+          参考答案 vs 实际生成的对比，能直观看到数据冒险和控制冒险如何被处理。
+        </div>
       </div>
     </div>
   </div>
@@ -867,5 +930,115 @@ function disableConfig() {
   .btn-disable {
     width: 100%;
   }
+}
+
+/* 使用步骤区块样式 */
+.usage-section {
+  background: linear-gradient(135deg, #f5f3ff 0%, #f8fafc 100%);
+  border-radius: 0.5rem;
+  padding: 0.875rem;
+  border: 1px solid #ddd6fe;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.usage-section .section-label {
+  margin-bottom: 0.25rem;
+  color: #5b21b6;
+}
+
+.usage-section .section-icon {
+  color: #7c3aed;
+}
+
+.usage-intro {
+  font-size: 0.75rem;
+  color: #475569;
+  line-height: 1.6;
+  background: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid #e2e8f0;
+}
+
+.usage-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  counter-reset: none;
+}
+
+.usage-list li {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.5rem 0.625rem;
+  background: white;
+  border-radius: 0.375rem;
+  border: 1px solid #e2e8f0;
+  font-size: 0.75rem;
+  color: #334155;
+  line-height: 1.55;
+}
+
+.usage-list li:hover {
+  border-color: #a78bfa;
+  background: #faf5ff;
+}
+
+.step-tag {
+  flex-shrink: 0;
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #7c3aed 0%, #6d28d9 100%);
+  color: white;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.0625rem;
+  box-shadow: 0 1px 2px rgba(124, 58, 237, 0.3);
+}
+
+.step-text {
+  flex: 1;
+}
+
+.step-text b {
+  color: #5b21b6;
+  font-weight: 700;
+}
+
+.step-text code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.6875rem;
+  padding: 0.0625rem 0.3125rem;
+  background: #ede9fe;
+  color: #6d28d9;
+  border-radius: 0.25rem;
+  border: 1px solid #ddd6fe;
+  margin: 0 0.125rem;
+}
+
+.usage-tip {
+  font-size: 0.6875rem;
+  color: #64748b;
+  line-height: 1.6;
+  padding: 0.5rem 0.75rem;
+  background: #fefce8;
+  border-left: 3px solid #eab308;
+  border-radius: 0.25rem;
+}
+
+.usage-tip b {
+  color: #854d0e;
+  font-weight: 700;
 }
 </style>

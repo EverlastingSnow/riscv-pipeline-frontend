@@ -13,7 +13,11 @@ const pipelineStore = usePipelineStore();
 
 const transform = ref({ x: 0, y: 0, k: 1 });
 const isDragging = ref(false);
-const startPos = ref({ x: 0, y: 0 });
+// 鼠标按下时记录起点 & 当前 transform；只有位移超过阈值才真正进入拖拽，
+// 这样点击（不移动）不会触发拖拽，信号 hover 才能正常显示 tooltip。
+const dragOrigin = ref({ x: 0, y: 0 });
+const transformAtDragStart = ref({ x: 0, y: 0 });
+const DRAG_THRESHOLD = 4; // px
 const containerRef = ref<HTMLElement | null>(null);
 
 const tooltipVisible = ref(false);
@@ -368,15 +372,28 @@ const handleWheel = (e: WheelEvent) => {
 
 const handleMouseDown = (e: MouseEvent) => {
   if (e.button === 0) {
-    isDragging.value = true;
-    startPos.value = { x: e.clientX - transform.value.x, y: e.clientY - transform.value.y };
+    // 仅记录起点，等位移超过阈值再进入拖拽
+    isDragging.value = false;
+    dragOrigin.value = { x: e.clientX, y: e.clientY };
+    transformAtDragStart.value = { ...transform.value };
   }
 };
 
 const handleMouseMove = (e: MouseEvent) => {
   if (isDragging.value) {
-    transform.value.x = e.clientX - startPos.value.x;
-    transform.value.y = e.clientY - startPos.value.y;
+    transform.value.x = transformAtDragStart.value.x + (e.clientX - dragOrigin.value.x);
+    transform.value.y = transformAtDragStart.value.y + (e.clientY - dragOrigin.value.y);
+    return;
+  }
+  // 按住左键但还没进入拖拽状态：判断是否跨过阈值
+  if ((e.buttons & 1) !== 0) {
+    const dx = e.clientX - dragOrigin.value.x;
+    const dy = e.clientY - dragOrigin.value.y;
+    if (dx * dx + dy * dy >= DRAG_THRESHOLD * DRAG_THRESHOLD) {
+      isDragging.value = true;
+      // 拖拽时立刻关闭 tooltip，避免 tooltip 跟随画布移动造成闪烁
+      if (tooltipVisible.value) tooltipVisible.value = false;
+    }
   }
 };
 
@@ -420,9 +437,10 @@ onUnmounted(() => {
 
 <template>
   <div class="editor-wrapper">
-    <div 
+    <div
       ref="containerRef"
       class="pipeline-container"
+      :class="{ 'is-dragging': isDragging }"
       @mousedown="handleMouseDown"
       @dblclick="handleDoubleClick"
     >
@@ -873,6 +891,13 @@ onUnmounted(() => {
         </g>
 
         <g v-for="connection in connections" :key="connection.id">
+          <!-- 透明加宽的命中层：只负责接 mouseenter/leave，不影响视觉 -->
+          <path
+            :d="generatePath(connection)"
+            class="connection-hit"
+            @mouseenter="handleMouseEnterConnection(connection.id, $event)"
+            @mouseleave="handleMouseLeaveConnection"
+          />
           <path
             :d="generatePath(connection)"
             :class="[
@@ -885,12 +910,10 @@ onUnmounted(() => {
               }
             ]"
             :marker-end="getArrowMarker(connection)"
-            @mouseenter="handleMouseEnterConnection(connection.id, $event)"
-            @mouseleave="handleMouseLeaveConnection"
           />
-          <text 
-            :x="getPathMidPoint(connection).x" 
-            :y="getPathMidPoint(connection).y" 
+          <text
+            :x="getPathMidPoint(connection).x"
+            :y="getPathMidPoint(connection).y"
             class="connection-label"
             :class="{
               'active-label': connection.type === 'data' && isDataFlowActive(connection.id),
@@ -970,6 +993,20 @@ onUnmounted(() => {
   fill: none;
   stroke-width: 1;
   transition: stroke 0.3s ease, stroke-width 0.3s ease, opacity 0.3s ease;
+  pointer-events: none;
+}
+
+/* 透明加宽的命中层：接 mouseenter/leave，让 1px 的细线也容易 hover 到 */
+.connection-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 14;
+  pointer-events: stroke;
+  cursor: help;
+}
+
+/* 拖拽过程中禁用命中层，避免鼠标跟着画布一起移动时误触 hover */
+.is-dragging .connection-hit {
   pointer-events: none;
 }
 
