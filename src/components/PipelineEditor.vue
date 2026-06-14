@@ -13,6 +13,9 @@ const pipelineStore = usePipelineStore();
 
 const transform = ref({ x: 0, y: 0, k: 1 });
 const isDragging = ref(false);
+// 只有 mousedown 真正发生在本容器上时才会被 arm。
+// 这样 window 上的 mousemove 不会因为用户点击了左右侧面板里的文本而误判为拖拽。
+const dragArmed = ref(false);
 // 鼠标按下时记录起点 & 当前 transform；只有位移超过阈值才真正进入拖拽，
 // 这样点击（不移动）不会触发拖拽，信号 hover 才能正常显示 tooltip。
 const dragOrigin = ref({ x: 0, y: 0 });
@@ -372,7 +375,8 @@ const handleWheel = (e: WheelEvent) => {
 
 const handleMouseDown = (e: MouseEvent) => {
   if (e.button === 0) {
-    // 仅记录起点，等位移超过阈值再进入拖拽
+    // arm：本容器的 mousedown 才允许后续触发拖拽
+    dragArmed.value = true;
     isDragging.value = false;
     dragOrigin.value = { x: e.clientX, y: e.clientY };
     transformAtDragStart.value = { ...transform.value };
@@ -385,8 +389,8 @@ const handleMouseMove = (e: MouseEvent) => {
     transform.value.y = transformAtDragStart.value.y + (e.clientY - dragOrigin.value.y);
     return;
   }
-  // 按住左键但还没进入拖拽状态：判断是否跨过阈值
-  if ((e.buttons & 1) !== 0) {
+  // 只有 arm 之后才检测阈值（避免在左右侧面板选中文本时误判为拖拽）
+  if (dragArmed.value) {
     const dx = e.clientX - dragOrigin.value.x;
     const dy = e.clientY - dragOrigin.value.y;
     if (dx * dx + dy * dy >= DRAG_THRESHOLD * DRAG_THRESHOLD) {
@@ -399,6 +403,7 @@ const handleMouseMove = (e: MouseEvent) => {
 
 const handleMouseUp = () => {
   isDragging.value = false;
+  dragArmed.value = false;
 };
 
 const handleDoubleClick = () => {
