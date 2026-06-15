@@ -104,7 +104,7 @@ function getComponent(componentName: string) {
 .panel-slide-enter-from,
 .panel-slide-leave-to {
   opacity: 0;
-  transform: translateY(-10px);
+  transform: translateY(-0.625rem);
 }
 
 @media (max-width: 992px) {

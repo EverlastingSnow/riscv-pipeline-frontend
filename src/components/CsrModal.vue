@@ -259,11 +259,11 @@ const trapTypeLabel = computed(() => {
 }
 
 .csr-addr {
-  @apply text-[10px] font-mono text-gray-400;
+  @apply text-[0.625rem] font-mono text-gray-400;
 }
 
 .csr-desc {
-  @apply text-[10px] text-gray-500 leading-tight;
+  @apply text-[0.625rem] text-gray-500 leading-tight;
 }
 
 .csr-value {

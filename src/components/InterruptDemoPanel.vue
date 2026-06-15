@@ -380,7 +380,7 @@ const interruptSrcAbbr = computed(() => {
           >
             <Zap class="w-4 h-4 mb-0.5" />
             <span>si</span>
-            <span class="text-[10px] opacity-70">bit 3</span>
+            <span class="text-[0.625rem] opacity-70">bit 3</span>
           </button>
           <button
             @click="triggerTi"
@@ -388,7 +388,7 @@ const interruptSrcAbbr = computed(() => {
           >
             <Clock class="w-4 h-4 mb-0.5" />
             <span>ti</span>
-            <span class="text-[10px] opacity-70">bit 7</span>
+            <span class="text-[0.625rem] opacity-70">bit 7</span>
           </button>
           <button
             @click="triggerEi"
@@ -396,7 +396,7 @@ const interruptSrcAbbr = computed(() => {
           >
             <Radio class="w-4 h-4 mb-0.5" />
             <span>ei</span>
-            <span class="text-[10px] opacity-70">bit 11</span>
+            <span class="text-[0.625rem] opacity-70">bit 11</span>
           </button>
         </div>
         <button
@@ -419,7 +419,7 @@ const interruptSrcAbbr = computed(() => {
         <tbody>
           <tr v-for="row in csrRows" :key="row.name" class="border-b border-gray-100 align-top">
             <td class="py-1.5 pr-2 font-mono text-cyan-700 w-20">{{ row.name }}</td>
-            <td class="py-1.5 pr-2 text-gray-500 text-[10px] leading-tight">
+            <td class="py-1.5 pr-2 text-gray-500 text-[0.625rem] leading-tight">
               <template v-if="row.name === 'mie'">
                 MSIE(3)=<b :class="row.parts!['MSIE']==='1'?'text-emerald-600':'text-gray-400'">{{ row.parts!['MSIE'] }}</b>
                 · MTIE(7)=<b :class="row.parts!['MTIE']==='1'?'text-emerald-600':'text-gray-400'">{{ row.parts!['MTIE'] }}</b>
@@ -486,7 +486,7 @@ const interruptSrcAbbr = computed(() => {
             <li>x10 = 100 + 1 = <b class="text-emerald-600">101</b>（验证异常已"消化"，程序流继续）</li>
             <li>x11 = 1（ecall 计数）</li>
           </ul>
-          <div class="mt-1 text-gray-500 text-[10px]">
+          <div class="mt-1 text-gray-500 text-[0.625rem]">
             教学要点：如果 handler 不推进 mepc 而直接 mret，CPU 会回到 ecall 自身 → 再次 trap → 再次 ecall → <b>无限循环异常</b>，前端会看到 PC 一直停在 ecall 指令、mcause 反复变 0xb。
           </div>
         </li>
@@ -498,7 +498,7 @@ const interruptSrcAbbr = computed(() => {
             <li>mret 回到 ebreak 自身，第二次 trap 时 PC=mtvec=0 → 越界</li>
             <li>模拟器 <b>halted_=true</b>，前端"CPU 当前状态"显示"已停机"</li>
           </ul>
-          <div class="mt-1 text-gray-500 text-[10px]">
+          <div class="mt-1 text-gray-500 text-[0.625rem]">
             教学要点：本模拟器没有 halt 指令，停机依赖 <b>PC 越界</b>机制。这与简单 ebreak 程序的停机原理完全一致（默认 mtvec=0 时 trap 到 PC=0 越界）。
           </div>
         </li>
@@ -545,7 +545,7 @@ const interruptSrcAbbr = computed(() => {
             <li>"CPU 当前状态"显示"<b>外部中断（MEIP/11）</b>"，x14+1</li>
             <li>si 那个 mip 位仍为 1（handler 只清 MSIP/MTIP/MEIP 之一），下一轮 trap 会处理它</li>
           </ul>
-          <div class="mt-1 text-gray-500 text-[10px]">
+          <div class="mt-1 text-gray-500 text-[0.625rem]">
             教学要点：后端 <code>get_interrupt_cause</code> 按优先级 <code>{11, 3, 7, 9, 1, 5}</code> 顺序查找第一个 pending 位，
             所以 MEI(11) 始终优先于 MSI(3) 和 MTI(7)。这与 RISC-V Privileged Spec 一致。
           </div>

@@ -947,17 +947,17 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   height: 100%;
-  gap: 8px;
+  gap: 0.5rem;
 }
 
 .pipeline-container {
   flex: 1;
-  min-height: 400px;
+  min-height: 25rem;
   overflow: hidden;
   position: relative;
   cursor: grab;
   background: #fafafa;
-  border-radius: 8px;
+  border-radius: 0.5rem;
 }
 
 .pipeline-container:active {
@@ -984,14 +984,14 @@ onUnmounted(() => {
   align-items: center;
   justify-content: center;
   height: 100%;
-  gap: 4px;
+  gap: 0.25rem;
   pointer-events: none;
 }
 
 .module-data {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 0.0625rem;
 }
 
 .connection-path {
@@ -1031,7 +1031,7 @@ onUnmounted(() => {
 }
 
 .connection-label {
-  font-size: 9px;
+  font-size: 0.5625rem;
   fill: #64748B;
   text-anchor: middle;
   pointer-events: none;
@@ -1067,19 +1067,19 @@ onUnmounted(() => {
 }
 
 .active-label {
-  font-size: 11px;
+  font-size: 0.6875rem;
   fill: var(--color-data-flow);
   font-weight: 700;
 }
 
 .active-label-control {
-  font-size: 10px;
+  font-size: 0.625rem;
   fill: var(--color-control-flow);
   font-weight: 700;
 }
 
 .active-label-address {
-  font-size: 10px;
+  font-size: 0.625rem;
   fill: var(--color-address-flow);
   font-weight: 700;
 }
@@ -1106,9 +1106,9 @@ onUnmounted(() => {
   position: fixed;
   background-color: #1f2937;
   color: white;
-  padding: 6px 12px;
-  border-radius: 6px;
-  font-size: 13px;
+  padding: 0.375rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.8125rem;
   font-family: monospace;
   white-space: nowrap;
   z-index: 9999;

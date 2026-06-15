@@ -565,7 +565,7 @@ function disableConfig() {
 .test-item:hover {
   border-color: #3b82f6;
   background: #eff6ff;
-  transform: translateY(-2px);
+  transform: translateY(-0.125rem);
   box-shadow: 0 4px 8px rgba(59, 130, 246, 0.2);
 }
 
@@ -633,7 +633,7 @@ function disableConfig() {
 .elf-test:hover {
   border-color: #22c55e;
   background: #dcfce7;
-  transform: translateY(-1px);
+  transform: translateY(-0.0625rem);
   box-shadow: 0 2px 4px rgba(34, 197, 94, 0.15);
 }
 
@@ -676,9 +676,9 @@ function disableConfig() {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  padding: 0.75rem 1rem;
+  padding: 0.75rem 0.5rem;
   border-radius: 0.5rem;
-  border: 2px solid #fde68a;
+  border: 0.125rem  solid #fde68a;
   background: white;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -688,7 +688,7 @@ function disableConfig() {
 .signal-item:hover {
   border-color: #f59e0b;
   background: #fef3c7;
-  transform: translateY(-2px);
+  transform: translateY(-0.125rem);
   box-shadow: 0 4px 8px rgba(245, 158, 11, 0.2);
 }
 
@@ -813,7 +813,7 @@ function disableConfig() {
 }
 
 .btn-confirm:hover:not(:disabled) {
-  transform: translateY(-1px);
+  transform: translateY(-0.0625rem);
   box-shadow: 0 4px 8px rgba(59, 130, 246, 0.4);
 }
 
@@ -834,7 +834,7 @@ function disableConfig() {
 }
 
 .btn-load:hover {
-  transform: translateY(-1px);
+  transform: translateY(-0.0625rem);
   box-shadow: 0 4px 8px rgba(34, 197, 94, 0.4);
 }
 
@@ -849,7 +849,7 @@ function disableConfig() {
 }
 
 .btn-disable:hover {
-  transform: translateY(-1px);
+  transform: translateY(-0.0625rem);
   box-shadow: 0 4px 8px rgba(239, 68, 68, 0.4);
 }
 
