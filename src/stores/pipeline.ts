@@ -72,8 +72,19 @@ const signals = ref<PipelineSignals | null>(null);
   const prev_mem_wb_valid = ref(false);
 
   // ★ 中断与异常演示：CSR 状态、Trap 类型、编辑器代码
-  const csrState = ref<PipelineSignals['csr'] | null>(null);
+  // 给予全 0 字符串默认值，组件里可直接 csrState.value.mip 访问而不必判空
+  const csrState = ref<NonNullable<PipelineSignals['csr']>>({
+    mtvec: '0x0',
+    mepc: '0x0',
+    mcause: '0x0',
+    mtval: '0x0',
+    mstatus: '0x0',
+    mie: '0x0',
+    mip: '0x0',
+  });
   const lastTrapType = ref<'none' | 'interrupt' | 'exception'>('none');
+  // ★ 中断源滞回字段：trap 发生后锁定为 si/ti/ei，reset 或下个 trap 才更新
+  const lastInterruptSrc = ref<'si' | 'ti' | 'ei' | null>(null);
   const editorCode = ref<string>('');
 
   const teachingScenarios: TeachingScenario[] = [
@@ -214,6 +225,15 @@ const signals = ref<PipelineSignals | null>(null);
     }
     if (sigs.interrupt_taken) {
       lastTrapType.value = 'interrupt';
+      // ★ 滞回：interrupt_taken 那个 cycle 锁定源（基于后端推回的 mcause）
+      try {
+        const cause = Number(BigInt(sigs.csr?.mcause ?? '0x0') & 0xFn);
+        if (cause === 3) lastInterruptSrc.value = 'si';
+        else if (cause === 7) lastInterruptSrc.value = 'ti';
+        else if (cause === 11) lastInterruptSrc.value = 'ei';
+      } catch {
+        /* 保留旧值 */
+      }
     } else if (sigs.trap_taken) {
       lastTrapType.value = 'exception';
     } else {
@@ -810,6 +830,8 @@ const signals = ref<PipelineSignals | null>(null);
 
   async function reset() {
     isRunning.value = false;
+    // ★ 中断源滞回字段清空（重置 CPU 时同步）
+    lastInterruptSrc.value = null;
     prev_if_id_valid.value = false;
     prev_id_ex_valid.value = false;
     prev_ex_mem_valid.value = false;
@@ -1029,6 +1051,24 @@ const signals = ref<PipelineSignals | null>(null);
     sendCommand('trigger_interrupt', { bit });
   }
 
+  // ★ 中断源 → mip bit 的标准映射（RISC-V 规范）
+  //   si → bit 3 (MSIP, Machine Software Interrupt Pending)
+  //   ti → bit 7 (MTIP, Machine Timer Interrupt Pending)
+  //   ei → bit 11 (MEIP, Machine External Interrupt Pending)
+  const INT_SRC_BITS = { si: 3, ti: 7, ei: 11 } as const;
+  type IntSrc = keyof typeof INT_SRC_BITS;
+
+  // ★ 新增：按源触发中断（推荐上层组件调用）
+  function triggerInterruptSrc(src: IntSrc) {
+    triggerInterrupt(INT_SRC_BITS[src]);
+  }
+
+  // ★ 中断源清空（兜底）：后端无 write_csr 命令，只能通过 reset 清 mip
+  //   注意：reset 会清掉所有 CPU 状态，不仅是 mip
+  function resetMip() {
+    reset();
+  }
+
   // ★ 中断与异常演示：把预置代码塞到编辑器
   function setEditorCode(code: string) {
     editorCode.value = code;
@@ -1107,8 +1147,11 @@ const signals = ref<PipelineSignals | null>(null);
     // ★ 中断与异常演示
     csrState,
     lastTrapType,
+    lastInterruptSrc,
     editorCode,
     triggerInterrupt,
+    triggerInterruptSrc,
+    resetMip,
     setEditorCode
   };
 });

@@ -241,6 +241,8 @@ const writebackUnit = computed(() => {
 .register-table {
   display: block;
   flex-shrink: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 .content-area {

@@ -132,20 +132,8 @@ onUnmounted(() => {
       </span>
     </div>
     </div>
-    
-    <!-- <div class="stats-row">
-      <span class="stats-item">
-        <span class="label">总访问：</span>
-        <span class="value">{{ visitCount }} 次</span>
-      </span>
-      <span class="separator">|</span>
-      <span class="stats-item">
-        <span class="label">累计：</span>
-        <span class="value">{{ formatDuration(totalTime) }}</span>
-      </span>
-    </div> -->
     <div class="stats-row developer-row">
-      <span>研制者：杭州电子科技大学 网络空间安全省级实验教学示范中心&工业互联网研究院</span>
+      <span>研制者：杭州电子科技大学 工业互联网研究院</span>
     </div>
   </div>
 </template>
@@ -229,8 +217,13 @@ onUnmounted(() => {
 }
 
 .developer-row {
-  font-weight: 700;
-  color: #6f7b8f;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  color: #94a3b8;
+  font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Helvetica Neue", Arial, sans-serif;
+  margin-top: -0.25rem;
+  padding: 0.125rem 0;
 }
 
 .result-row {

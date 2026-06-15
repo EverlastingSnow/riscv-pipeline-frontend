@@ -23,7 +23,7 @@ function handleIntervalChange() {
       <div class="logo">
         <img src="@/assets/hdu.jpg" class="w-10 h-10" />
       </div>
-      <h1 class="title">RV64IM_Zicsr_Zifencei 五级流水线虚拟仿真实验软件</h1>
+      <h1 class="title">RV64IMAZicsr_Zifencei 五级流水线虚拟仿真实验软件</h1>
     </div>
     
     <div class="button-section">
