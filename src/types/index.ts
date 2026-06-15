@@ -191,3 +191,16 @@ export interface BackendResponse {
   };
   diffResult?: CompareResult;
 }
+
+// 视图模式：中央 pipeline-section 区域显示哪种视图
+export type CenterView = 'pipeline' | 'waveform';
+
+// 单拍波形快照（用于 FIFO 滑窗历史累加）
+export interface WaveformSnapshot {
+  cycle: number;
+  timestamp: number;
+  // key = signal.id (from calculateAllSignals), value 为该 cycle 的显示值
+  values: Record<string, string>;
+  // 该 cycle 活跃的信号 id 集合（用于方波着色）
+  activeIds: Set<string>;
+}

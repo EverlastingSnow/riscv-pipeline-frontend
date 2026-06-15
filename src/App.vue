@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { onMounted, onUnmounted } from 'vue';
 import PipelineEditor from './components/PipelineEditor.vue';
+import WaveformPanel from './components/WaveformPanel.vue';
 import ControlPanel from './components/ControlPanel.vue';
 import RegisterModal from './components/RegisterModal.vue';
 import CsrModal from './components/CsrModal.vue';
@@ -57,9 +58,10 @@ onUnmounted(() => {
         <!-- 顶部控制面板 -->
         <ControlPanel />
         
-        <!-- 流水线可视化 -->
+        <!-- 流水线可视化 / 波形图（互斥占位） -->
         <div class="pipeline-section">
-          <PipelineEditor />
+          <PipelineEditor v-if="pipelineStore.centerView === 'pipeline'" />
+          <WaveformPanel v-else />
         </div>
       </div>
       

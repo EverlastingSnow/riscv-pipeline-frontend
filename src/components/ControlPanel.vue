@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { usePipelineStore } from '../stores/pipeline';
-import { 
-  Play, 
-  Pause, 
-  RotateCcw, 
+import {
+  Play,
+  Pause,
+  RotateCcw,
   ChevronRight,
-  Clock
+  Clock,
+  Activity,
+  Cpu,
 } from 'lucide-vue-next';
 
 const pipelineStore = usePipelineStore();
@@ -65,12 +67,23 @@ function handleIntervalChange() {
         <span>暂停</span>
       </button>
       
-      <button 
+      <button
         @click="pipelineStore.reset"
         class="control-btn reset-btn"
       >
         <RotateCcw class="w-4 h-4" />
         <span>重置</span>
+      </button>
+
+      <button
+        @click="pipelineStore.toggleCenterView()"
+        class="control-btn view-toggle-btn"
+        :class="{ active: pipelineStore.centerView === 'waveform' }"
+        :title="pipelineStore.centerView === 'waveform' ? '切换到流水线细节' : '切换到波形图'"
+      >
+        <Activity v-if="pipelineStore.centerView !== 'waveform'" class="w-4 h-4" />
+        <Cpu v-else class="w-4 h-4" />
+        <span>{{ pipelineStore.centerView === 'waveform' ? '流水线' : '波形' }}</span>
       </button>
     </div>
     
@@ -87,7 +100,7 @@ function handleIntervalChange() {
 .control-panel {
   background-color: #fafafa;
   border-bottom: 1px solid #e5e7eb;
-  padding: 1rem 1.5rem;
+  padding: 0.875rem 1.5rem;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -120,7 +133,7 @@ function handleIntervalChange() {
 .button-section {
   display: flex;
   align-items: center;
-  gap: clamp(0.25rem, 1vw, 0.5rem);
+  gap: clamp(0.375rem, 1.2vw, 0.625rem);
 }
 
 .interval-section {
@@ -146,8 +159,8 @@ function handleIntervalChange() {
   font-weight: 500;
   transition: all 0.2s;
   gap: clamp(0.125rem, 0.5vw, 0.25rem);
-  padding: clamp(0.25rem, 0.8vw, 0.5rem) clamp(0.5rem, 1.5vw, 0.75rem);
-  font-size: clamp(0.5rem, 1.2vw, 0.75rem);
+  padding: clamp(0.3rem, 0.9vw, 0.55rem) clamp(0.625rem, 1.6vw, 0.875rem);
+  font-size: clamp(0.5625rem, 1.25vw, 0.8125rem);
 }
 
 .control-btn :deep(svg) {
@@ -204,6 +217,29 @@ function handleIntervalChange() {
 
 .reset-btn:hover {
   background-color: #dc2626;
+}
+
+.view-toggle-btn {
+  background-color: #f1f5f9;
+  color: #334155;
+  border: 1px solid #cbd5e1;
+}
+
+.view-toggle-btn:hover {
+  background-color: #e2e8f0;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
+.view-toggle-btn.active {
+  background-color: #3b82f6;
+  color: white;
+  border-color: #2563eb;
+}
+
+.view-toggle-btn.active:hover {
+  background-color: #2563eb;
+  border-color: #1d4ed8;
 }
 
 .status-section {

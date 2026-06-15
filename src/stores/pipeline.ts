@@ -1,7 +1,9 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { CPUState, RegisterData, ALUData, ControlSignalsData, ModalType, DifftestConfig, TeachingScenario, CompareResult, TeachingTest } from '../types';
+import type { CPUState, RegisterData, ALUData, ControlSignalsData, ModalType, DifftestConfig, TeachingScenario, CompareResult, TeachingTest, CenterView, WaveformSnapshot } from '../types';
 import { mockCPUState, mockRegisters, mockALUData, mockControlSignals } from '../data/mockData';
+
+const MAX_HISTORY = 256;
 
 function safeJsonParse(raw: string): any {
   const processed = raw.replace(/:\s*(-?\d{16,})/g, (_match, numStr) => {
@@ -86,6 +88,17 @@ const signals = ref<PipelineSignals | null>(null);
   // ★ 中断源滞回字段：trap 发生后锁定为 si/ti/ei，reset 或下个 trap 才更新
   const lastInterruptSrc = ref<'si' | 'ti' | 'ei' | null>(null);
   const editorCode = ref<string>('');
+
+  // ★ 波形视图相关状态（centerView 决定中央 pipeline-section 渲染 PipelineEditor 还是 WaveformPanel）
+  const centerView = ref<CenterView>('pipeline');
+  // FIFO 滑窗历史快照，到达 MAX_HISTORY 时丢弃最早的记录
+  const signalHistory = ref<WaveformSnapshot[]>([]);
+  // 录制开关（默认开）
+  const historyRecording = ref(true);
+  // 用户在波形区域内勾选要展示的信号 id 集合
+  const selectedSignalIds = ref<Set<string>>(new Set());
+  // "跳转最新"自动跟随开关
+  const autoFollowLatest = ref(true);
 
   const teachingScenarios: TeachingScenario[] = [
     { id: 1, name: '场景1: 寄存器写', description: '学习 RegWrite 信号', signals: ['RegWrite'] },
@@ -331,6 +344,39 @@ const signals = ref<PipelineSignals | null>(null);
         operation: instrKind,
         result: parseHexValue(aluRes)
       };
+    }
+
+    // ★ 波形视图：把当拍全量信号快照推入 history（FIFO 滑窗，丢弃最早记录）
+    appendHistorySnapshot(sigs);
+  }
+
+  // ★ 波形 FIFO 累加：若 cycle 与队尾相同则覆盖；满则 shift 队首
+  function appendHistorySnapshot(sigs: any) {
+    if (!historyRecording.value) return;
+    const items = calculateAllSignals(sigs);
+    const values: Record<string, string> = {};
+    const activeIds = new Set<string>();
+    for (const it of items) {
+      values[it.id] = it.value;
+      if (it.active) activeIds.add(it.id);
+    }
+    const cycle = typeof sigs.cycle === 'number' ? sigs.cycle : parseInt(sigs.cycle) || 0;
+    const snap: WaveformSnapshot = {
+      cycle,
+      timestamp: Date.now(),
+      values,
+      activeIds,
+    };
+    const list = signalHistory.value;
+    const tail = list[list.length - 1];
+    if (list.length > 0 && tail && tail.cycle === cycle) {
+      // 覆盖队尾（防止重复步进写入两次）
+      list[list.length - 1] = snap;
+    } else {
+      if (list.length >= MAX_HISTORY) {
+        list.shift();
+      }
+      list.push(snap);
     }
   }
 
@@ -841,6 +887,8 @@ const signals = ref<PipelineSignals | null>(null);
     compareResult.value = null;
     haltedState.value = null;
     userInputSignals.value.clear();
+    // ★ 波形历史随 CPU 重置同步清空
+    signalHistory.value = [];
     if (useBackend.value) {
       sendCommand('reset');
     } else {
@@ -1090,6 +1138,55 @@ const signals = ref<PipelineSignals | null>(null);
     userInputSignals.value.clear();
   }
 
+  // ★ 波形视图相关方法
+  function setCenterView(view: CenterView) {
+    centerView.value = view;
+  }
+  function toggleCenterView() {
+    centerView.value = centerView.value === 'pipeline' ? 'waveform' : 'pipeline';
+  }
+  function clearHistory() {
+    signalHistory.value = [];
+  }
+  function toggleHistoryRecording() {
+    historyRecording.value = !historyRecording.value;
+  }
+  function toggleSignalSelected(id: string) {
+    // 用新 Set 触发响应式更新（Set 的变更不会自动被 ref 检测到）
+    const next = new Set(selectedSignalIds.value);
+    if (next.has(id)) {
+      next.delete(id);
+    } else {
+      next.add(id);
+    }
+    selectedSignalIds.value = next;
+  }
+  function selectAllSignals() {
+    if (!signals.value) return;
+    const all = calculateAllSignals(signals.value);
+    selectedSignalIds.value = new Set(all.map(s => s.id));
+  }
+  function deselectAllSignals() {
+    selectedSignalIds.value = new Set();
+  }
+  function setSignalGroupSelected(stage: string, selected: boolean) {
+    if (!signals.value) return;
+    const all = calculateAllSignals(signals.value);
+    const next = new Set(selectedSignalIds.value);
+    for (const s of all) {
+      if (s.stage !== stage) continue;
+      if (selected) {
+        next.add(s.id);
+      } else {
+        next.delete(s.id);
+      }
+    }
+    selectedSignalIds.value = next;
+  }
+  function setAutoFollowLatest(v: boolean) {
+    autoFollowLatest.value = v;
+  }
+
   connect();
 
   return {
@@ -1152,6 +1249,22 @@ const signals = ref<PipelineSignals | null>(null);
     triggerInterrupt,
     triggerInterruptSrc,
     resetMip,
-    setEditorCode
+    setEditorCode,
+    // ★ 波形视图
+    centerView,
+    signalHistory,
+    historyRecording,
+    selectedSignalIds,
+    autoFollowLatest,
+    MAX_HISTORY,
+    setCenterView,
+    toggleCenterView,
+    clearHistory,
+    toggleHistoryRecording,
+    toggleSignalSelected,
+    selectAllSignals,
+    deselectAllSignals,
+    setSignalGroupSelected,
+    setAutoFollowLatest,
   };
 });
