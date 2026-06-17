@@ -8,40 +8,63 @@ import CompactCodeEditor from './CompactCodeEditor.vue';
 import InfoPanel from './InfoPanel.vue';
 import DifftestPanel from './DifftestPanel.vue';
 
+/**
+ * 组件 Props 定义
+ * @property {'left' | 'right'} position 面板容器所处的位置，决定渲染左侧还是右侧面板组
+ */
 const props = defineProps<{
   position: 'left' | 'right';
 }>();
 
 const panelStore = usePanelStore();
 
+/**
+ * 当前显示的面板列表
+ * 根据 position props 选择左侧或右侧面板数组
+ */
 const panels = computed(() => {
+  // 根据面板位置（左侧/右侧）从 store 中获取对应的面板集合
   return props.position === 'left'
     ? panelStore.leftPanels
     : panelStore.rightPanels;
 });
 
+/**
+ * 组件名称到组件实例的映射表
+ * 用于通过字符串名称动态解析出实际的 Vue 组件
+ */
 const componentMap: Record<string, any> = {
   'CompactPipelineInfo': CompactPipelineInfo,
   'CompactCodeEditor': CompactCodeEditor,
   'InfoPanel': InfoPanel,
   'DifftestPanel': DifftestPanel,
+  // 中断演示面板使用异步加载，避免打包时全部引入，提升首屏性能
   'InterruptDemoPanel': defineAsyncComponent(() => import('./InterruptDemoPanel.vue'))
 };
 
+/**
+ * 根据组件名称获取对应的 Vue 组件实例
+ * @param {string} componentName 面板配置中的组件名称
+ * @returns {any} 对应的组件定义，未找到时返回 null
+ */
 function getComponent(componentName: string) {
   return componentMap[componentName] || null;
 }
 </script>
 
 <template>
+  <!-- 面板容器根元素：根据 position 应用左右样式类 -->
   <div
     class="panel-container"
     :class="[`position-${position}`]"
   >
+    <!-- 面板标签栏：展示可切换的标签页 -->
     <PanelTabBar :position="position" />
 
+    <!-- 面板内容区域：使用 TransitionGroup 实现切换动画 -->
     <div class="panels-area">
       <TransitionGroup name="panel-slide">
+        <!-- 遍历所有面板，停靠外壳负责展开/收起，业务组件通过动态 component 渲染 -->
         <DockingPanel
           v-for="panel in panels"
           v-show="panel.isActive"
@@ -52,6 +75,7 @@ function getComponent(componentName: string) {
             v-if="getComponent(panel.componentName)"
             :is="getComponent(panel.componentName)"
           />
+          <!-- 组件未找到时的占位提示 -->
           <div v-else class="no-component">
             <p>组件 "{{ panel.componentName }}" 未找到</p>
           </div>

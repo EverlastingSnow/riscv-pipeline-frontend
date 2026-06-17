@@ -1,21 +1,35 @@
+/**
+ * 差分测试信号输入弹窗组件
+ * 作用：当流水线运行到差分测试断点时，引导用户为每条待测控制信号选择 0/1 并提交，
+ *      用于教学/训练场景下的人机交互式差分测试
+ */
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue';
 import { usePipelineStore } from '../stores/pipeline';
 import DraggableModal from './DraggableModal.vue';
-import { 
+import {
   Lightbulb,
   Send,
   Eye
 } from 'lucide-vue-next';
 
+/** 全局流水线状态存储，用于读取待输入信号列表并提交用户答案 */
 const pipelineStore = usePipelineStore();
 
+/** 当前待输入的差分测试信号包（指令名 / PC / 待填写信号列表等） */
 const pendingInput = computed(() => pipelineStore.pendingSignalInput);
 
+/** 用户对每个信号的作答，键为信号名，值为 '0' 或 '1' */
 const userInputs = ref<Record<string, string>>({});
+/** 是否所有信号都已作答，控制提交按钮的可用状态 */
 const inputComplete = ref(false);
+/** 是否展开参考答案区域 */
 const showAnswer = ref(false);
 
+/**
+ * 指令类型 → 汇编格式模板映射表
+ * 用于在弹窗中向用户展示该指令的汇编书写格式与简要说明
+ */
 const instructionFormatMap: Record<string, { format: string; description: string }> = {
   'R-type': { format: 'rd, rs1, rs2', description: '寄存器-寄存器指令' },
   'I-type': { format: 'rd, rs1, imm', description: '立即数指令' },
@@ -28,12 +42,22 @@ const instructionFormatMap: Record<string, { format: string; description: string
   'AUIPC': { format: 'rd, offset', description: 'PC加立即数' },
 };
 
+/** R 型指令集合（寄存器-寄存器 ALU 运算） */
 const rTypeInstructions = ['ADD', 'SUB', 'SLL', 'SLT', 'SLTU', 'XOR', 'SRL', 'SRA', 'OR', 'AND'];
+/** I 型立即数指令集合（寄存器-立即数 ALU 运算） */
 const iTypeInstructions = ['ADDI', 'SLTI', 'SLTIU', 'XORI', 'ORI', 'ANDI', 'SLLI', 'SRLI', 'SRAI'];
+/** 加载指令集合 */
 const loadInstructions = ['LB', 'LH', 'LW', 'LD', 'LBU', 'LHU', 'LWU'];
+/** 存储指令集合 */
 const storeInstructions = ['SB', 'SH', 'SW', 'SD'];
+/** 条件分支指令集合 */
 const branchInstructions = ['BEQ', 'BNE', 'BLT', 'BGE', 'BLTU', 'BGEU'];
 
+/**
+ * 根据待测指令名推导其指令类型（R-type / I-type / LOAD / ...）
+ * 顺序与集合定义对应：优先匹配 R 型，再到 I 型、LOAD、STORE、BRANCH，
+ * 最后单独匹配 JAL / JALR / LUI / AUIPC 等非标准类型
+ */
 const instructionType = computed(() => {
   const name = pendingInput.value?.instruction || '';
   if (!name) return '';
@@ -49,46 +73,71 @@ const instructionType = computed(() => {
   return '';
 });
 
+/** 当前指令类型对应的汇编格式模板（含 format 与 description） */
 const instructionFormat = computed(() => {
   return instructionFormatMap[instructionType.value] || null;
 });
 
+/** 切换参考答案区域的展开/收起状态 */
 function toggleAnswer() {
   showAnswer.value = !showAnswer.value;
 }
 
+/**
+ * 记录用户对某条信号的选择（'0' 或 '1'）
+ * @param signalName 信号名
+ * @param value 用户选择的值（字符串 '0' 或 '1'）
+ */
 function selectSignalValue(signalName: string, value: string) {
   userInputs.value[signalName] = value;
+  // 每次选择后重新校验是否所有信号都已作答
   checkInputComplete();
 }
 
+/**
+ * 校验所有待填信号是否都已作答
+ * 规则：pendingInput.value.signals 中每个 signal 都必须在 userInputs 中存在对应条目
+ */
 function checkInputComplete() {
   if (!pendingInput.value?.signals) {
     inputComplete.value = false;
     return;
   }
-  
+
   const allSelected = pendingInput.value.signals.every(
+    // 仅判断是否已作答（值已定义即可，'0' 也是有效作答）
     signal => userInputs.value[signal.name] !== undefined
   );
   inputComplete.value = allSelected;
 }
 
+/**
+ * 提交用户填写的所有控制信号
+ * 将 '0'/'1' 字符串转换为 boolean 后写入 store，
+ * 并关闭弹窗、清空本地作答状态
+ */
 function submitSignals() {
   if (!inputComplete.value || !pendingInput.value?.signals) return;
-  
+
   for (const signal of pendingInput.value.signals) {
+    // '1' 视为 true，其余（非 '1'）一律视为 false
     const value = userInputs.value[signal.name] === '1';
     pipelineStore.setUserSignal(signal.name, value);
   }
-  
+
+  // 关闭待输入弹窗
   pipelineStore.clearPendingSignalInput();
-  
+
+  // 重置本地状态，便于下一道题使用
   userInputs.value = {};
   inputComplete.value = false;
   showAnswer.value = false;
 }
 
+/**
+ * 监听待输入信号包变化
+ * 一旦弹窗内容变化（开始新题/关闭重开），立即重置所有本地状态
+ */
 watch(() => pendingInput.value, () => {
   userInputs.value = {};
   inputComplete.value = false;
@@ -105,6 +154,7 @@ watch(() => pendingInput.value, () => {
   >
     <div class="difftest-input-modal">
       <div v-if="pendingInput" class="input-content">
+        <!-- 顶部：待测指令基本信息（指令名 / PC / 格式说明） -->
         <div class="instr-info">
           <div class="instr-header">
             <Lightbulb class="w-5 h-5 text-yellow-500" />
@@ -117,6 +167,7 @@ watch(() => pendingInput.value, () => {
           </div>
         </div>
 
+        <!-- 中部：每条待填控制信号的 0/1 单选按钮列表 -->
         <div v-if="pendingInput.signals" class="signals-list">
           <div v-for="signal in pendingInput.signals" :key="signal.name" class="signal-item">
             <div class="signal-row">
@@ -141,6 +192,7 @@ watch(() => pendingInput.value, () => {
           </div>
         </div>
 
+        <!-- 提示折叠面板：根据当前信号动态给出 RegWrite/ALUSrc/MemRead 等提示文本 -->
         <div class="hint-toggle">
           <details>
             <summary class="hint-summary">查看提示</summary>
@@ -169,6 +221,7 @@ watch(() => pendingInput.value, () => {
           </details>
         </div>
 
+        <!-- 参考答案区域：可展开/收起，用于学员自测时核对答案 -->
         <div class="answer-section">
           <button class="answer-toggle" @click="toggleAnswer">
             <Eye class="w-4 h-4" />
@@ -182,7 +235,8 @@ watch(() => pendingInput.value, () => {
           </div>
         </div>
 
-        <button 
+        <!-- 底部：提交按钮，仅在所有信号都已作答时可点击 -->
+        <button
           class="submit-btn"
           :class="{ ready: inputComplete }"
           :disabled="!inputComplete"

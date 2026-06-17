@@ -2,15 +2,22 @@
 import { computed } from 'vue';
 import { usePipelineStore } from '../stores/pipeline';
 import DraggableModal from './DraggableModal.vue';
-import { 
-  Settings, 
+import {
+  Settings,
   Activity
 } from 'lucide-vue-next';
 
 const pipelineStore = usePipelineStore();
 
+/** 当前活跃的控制信号列表（来自流水线仓库），用于驱动弹窗内容展示 */
 const activeControlSignals = computed(() => pipelineStore.activeControlSignals);
 
+/**
+ * 格式化控制信号值为可显示字符串：未定义时回退为 '0'，避免空值显示。
+ *
+ * @param {string | undefined} val - 信号原始值
+ * @returns {string} 格式化后的字符串
+ */
 const formatSignalValue = (val: string | undefined): string => {
   return val || '0';
 };
@@ -24,6 +31,7 @@ const formatSignalValue = (val: string | undefined): string => {
     @close="pipelineStore.closeModal('control')"
   >
     <div class="control-modal">
+      <!-- 弹窗头部：图标 + 标题与功能描述 -->
       <div class="ctrl-header">
         <Settings class="w-8 h-8 text-red-500" />
         <div class="ctrl-title">
@@ -31,15 +39,17 @@ const formatSignalValue = (val: string | undefined): string => {
           <p>当前活跃的控制信号</p>
         </div>
       </div>
-      
+
+      <!-- 活跃信号列表区域：展示当前正在生效的控制信号 -->
       <div class="signals-section">
         <div class="section-header">
           <Activity class="w-4 h-4 text-green-500" />
           <h4>活跃控制信号 ({{ activeControlSignals.length }})</h4>
         </div>
         <div class="signal-list">
-          <div 
-            v-for="signal in activeControlSignals" 
+          <!-- v-for 渲染每条信号：无信号时显示空态占位 -->
+          <div
+            v-for="signal in activeControlSignals"
             :key="signal.id"
             class="signal-item active"
           >
@@ -58,7 +68,8 @@ const formatSignalValue = (val: string | undefined): string => {
           </div>
         </div>
       </div>
-      
+
+      <!-- 信号说明区域：列出常见控制信号及其含义，帮助用户理解 -->
       <div class="info-section">
         <h4>信号说明</h4>
         <ul class="signal-description">

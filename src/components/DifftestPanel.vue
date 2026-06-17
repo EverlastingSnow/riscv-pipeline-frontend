@@ -12,17 +12,30 @@ import {
   ListChecks
 } from 'lucide-vue-next';
 
+/** 引入全局流水线状态仓库，用于读写差分测试配置与执行加载操作 */
 const pipelineStore = usePipelineStore();
 
+/** 当前选中的教学场景编号；0 表示"自由模式"，>0 对应 store 中具体教学场景 */
 const selectedScenario = ref(0);
+/** 自由模式下用户手动勾选的信号 ID 列表，作为差分测试的参考答案 */
 const customSignals = ref<string[]>([]);
+/** 是否已应用差分测试配置（绑定到 store 中的 difftestConfig.enabled） */
 const isApplied = computed(() => pipelineStore.difftestConfig.enabled);
+/** 当前已选中的测试用例名称（教学测试或 ELF 测试） */
 const selectedTestName = ref('');
+/** 已选中的测试是否为 ELF 格式（riscv-tests 编译产物） */
 const isElfTest = ref(false);
+/** 是否正在异步加载测试用例列表（用于显示"加载中"提示） */
 const isLoadingTests = ref(false);
+/** 是否使用外部自定义 ELF 文件路径进行加载 */
 const isExternalElf = ref(false);
+/** 外部 ELF 文件的路径，仅在 isExternalElf 为 true 时有效 */
 const externalElfPath = ref('');
 
+/**
+ * 场景编号到 store 内部 key 的映射表。
+ * 0（自由模式）不在此映射内，会走"不过滤"分支。
+ */
 const scenarioIdToKey: Record<number, string> = {
   1: 'scenario1',
   2: 'scenario2',
@@ -30,68 +43,120 @@ const scenarioIdToKey: Record<number, string> = {
   4: 'scenario4',
 };
 
+/**
+ * 根据 selectedScenario 查找当前激活的教学场景对象。
+ * @returns 当前场景对象，未匹配到时返回 undefined
+ */
 const currentScenario = computed(() => {
   return pipelineStore.teachingScenarios.find(s => s.id === selectedScenario.value);
 });
 
+/**
+ * 计算实际用于差分测试的信号集合：
+ * - 自由模式下使用用户自定义勾选的信号
+ * - 其他场景下使用该场景内置的信号列表
+ */
 const selectedSignals = computed(() => {
   if (selectedScenario.value === 0) {
+    // 自由模式：使用用户手动勾选的自定义信号
     return customSignals.value;
   }
+  // 教学场景：使用场景自带的参考答案信号集
   return currentScenario.value?.signals || [];
 });
 
+/**
+ * 按当前场景过滤后的"教学测试"列表（不含 ELF 测试）。
+ * 自由模式或无映射时返回全部；否则只保留与当前场景匹配或标记为 all 的测试。
+ */
 const filteredTests = computed(() => {
   const key = scenarioIdToKey[selectedScenario.value];
   if (!key) return pipelineStore.teachingTests;
   return pipelineStore.teachingTests.filter(t => t.scenario === key || t.scenario === 'all');
 });
 
+/**
+ * 按当前场景过滤后的"ELF 测试"列表（来自 riscv-tests 编译产物）。
+ * 过滤策略与 filteredTests 一致。
+ */
 const filteredElfTests = computed(() => {
   const key = scenarioIdToKey[selectedScenario.value];
   if (!key) return pipelineStore.elfTests;
   return pipelineStore.elfTests.filter(t => t.scenario === key || t.scenario === 'all');
 });
 
+/**
+ * 监听 store 中差分测试配置的深变化，用于把"已应用"的配置同步回本地 UI 状态。
+ * 仅在 enabled 为 true 时回填，避免禁用态下覆盖用户当前编辑。
+ */
 watch(() => pipelineStore.difftestConfig, (newConfig) => {
   if (newConfig.enabled) {
+    // 同步选中的场景编号
     selectedScenario.value = newConfig.scenario?.id ?? 0;
+    // 同步已启用的信号集合（拷贝以避免与 store 共享引用）
     customSignals.value = [...newConfig.enabledSignals];
+    // 同步已选测试名称
     selectedTestName.value = newConfig.scenario?.name || '';
   }
 }, { immediate: true, deep: true });
 
+/**
+ * 监听场景切换：触发测试列表的异步加载，并重置测试选择相关状态。
+ * @param newId 切换后的场景编号
+ */
 watch(selectedScenario, async (newId) => {
   if (newId > 0) {
+    // 教学场景变化时拉取对应的测试列表（当前为占位逻辑）
     await loadTestsForScenario(newId);
   }
+  // 切换场景后清空之前选中的测试，避免跨场景串台
   selectedTestName.value = '';
   isElfTest.value = false;
   isExternalElf.value = false;
   externalElfPath.value = '';
 });
 
+/**
+ * 用户点击场景项时调用：仅更新场景编号并重置与测试选择相关的状态。
+ * @param id 选中的场景编号
+ */
 function selectScenario(id: number) {
+  // 切场景时清空已选测试，避免显示陈旧选中态
   selectedScenario.value = id;
   selectedTestName.value = '';
   isExternalElf.value = false;
   externalElfPath.value = '';
 }
 
+/**
+ * 切换自由模式下某个信号的勾选状态（已勾选则取消，未勾选则加入）。
+ * @param signalId 信号 ID（如 'RegWrite'、'ALUSrc' 等）
+ */
 function toggleCustomSignal(signalId: string) {
+  // 通过 indexOf 判断当前是否已勾选，便于支持取消操作
   const idx = customSignals.value.indexOf(signalId);
   if (idx >= 0) {
+    // 已勾选：从集合中移除
     customSignals.value.splice(idx, 1);
   } else {
+    // 未勾选：加入参考答案信号集合
     customSignals.value.push(signalId);
   }
 }
 
+/**
+ * 用户点击测试用例项时调用，支持"再点一次取消选择"的交互。
+ * 选中时会同时记录是教学测试还是 ELF 测试。
+ * @param testName 测试名称
+ * @param isElf 是否为 ELF 测试，默认 false（教学测试）
+ */
 function selectTest(testName: string, isElf: boolean = false) {
   if (selectedTestName.value === testName && isElfTest.value === isElf && !isExternalElf.value) {
+    // 再次点击同一项：取消选中，恢复"未选测试"状态
     selectedTestName.value = '';
     isElfTest.value = false;
   } else {
+    // 选中新的测试：记录名称与类型，并清空外部 ELF 相关状态
     selectedTestName.value = testName;
     isElfTest.value = isElf;
     isExternalElf.value = false;
@@ -99,62 +164,96 @@ function selectTest(testName: string, isElf: boolean = false) {
   }
 }
 
+/**
+ * 切换场景时触发的"加载测试"占位逻辑：开启 loading 标志并延时关闭，
+ * 用以驱动 UI 上的"加载中…"提示。后续可在此接入真实接口。
+ * @param _scenarioId 场景编号（当前未使用，保留以备扩展）
+ */
 async function loadTestsForScenario(_scenarioId: number) {
+  // 显示加载中提示
   isLoadingTests.value = true;
+  // 100ms 后自动关闭，避免长时间闪烁（占位延时）
   setTimeout(() => {
     isLoadingTests.value = false;
   }, 100);
 }
 
+/**
+ * 一站式流程：按当前选择加载对应测试程序（外部 ELF / 教学 ELF / 教学测试），
+ * 并在加载完成后启用差分测试。优先级：外部 ELF > 教学 ELF 测试 > 教学测试。
+ */
 async function loadAndStartTest() {
+  // 根据场景类型决定使用哪一组信号作为参考答案
   const signals = selectedScenario.value === 0
     ? customSignals.value
     : currentScenario.value?.signals || [];
 
   if (isExternalElf.value && externalElfPath.value) {
+    // 路径 1：加载用户提供的外部 ELF 文件
     await pipelineStore.loadElf(externalElfPath.value);
   } else if (isElfTest.value && selectedTestName.value) {
+    // 路径 2：加载预置的 ELF 测试（来自 riscv-tests）
     await pipelineStore.loadElfTest(selectedTestName.value);
   } else if (selectedTestName.value) {
+    // 路径 3：加载教学测试（内置参考答案信号）
     await pipelineStore.loadTeachingTest(selectedTestName.value);
   } else {
+    // 没有可加载的目标：直接返回
     return;
   }
 
+  // 加载成功后启用差分测试；currentScenario 在非自由模式下一定存在
   pipelineStore.enableDifftest(currentScenario.value!, signals);
 }
 
+/**
+ * 仅"确认配置"按钮调用：不加载任何测试程序，直接以当前场景/信号启用差分。
+ * 适合用户已经在编辑器中写好代码、希望直接跑差分比对的场景。
+ */
 function confirmConfig() {
+  // 自由模式用自定义信号，教学场景用场景内置信号
   const signals = selectedScenario.value === 0
     ? customSignals.value
     : currentScenario.value?.signals || [];
 
+  // 自由模式没有现成场景对象，构造一个虚拟场景以满足 store 的入参结构
   const scenario = selectedScenario.value === 0
     ? { id: 0, name: '自由模式', description: '自定义所有信号', signals: customSignals.value }
     : currentScenario.value!;
 
+  // 将当前 UI 配置写入 store，触发差分测试开启
   pipelineStore.enableDifftest(scenario, signals);
 }
 
+/**
+ * 禁用差分测试并清空当前已选测试，恢复普通运行模式。
+ */
 function disableConfig() {
+  // 通知 store 关闭差分测试
   pipelineStore.disableDifftest();
+  // 同步清空本地选中的测试名，UI 上不再高亮
   selectedTestName.value = '';
 }
 </script>
 
 <template>
+  <!-- 差分测试面板根容器 -->
   <div class="difftest-panel">
+    <!-- 面板顶部：标题 + 启用状态徽标 -->
     <div class="panel-header">
       <div class="header-left">
         <FlaskConical class="header-icon" />
         <span class="header-title">差分测试</span>
       </div>
+      <!-- 启用状态：根据 isApplied 切换文案与配色 -->
       <div class="header-status" :class="{ active: isApplied }">
         {{ isApplied ? '已启用' : '未启用' }}
       </div>
     </div>
 
+    <!-- 面板正文：纵向排列各功能区块 -->
     <div class="panel-content">
+      <!-- 教学场景选择区（必选） -->
       <div class="scenarios-section">
         <div class="section-label">
           <BookOpen class="section-icon" />
@@ -180,13 +279,16 @@ function disableConfig() {
         </div>
       </div>
 
+      <!-- 测试用例选择区（仅在选中教学场景时展示） -->
       <div class="tests-section" v-if="selectedScenario > 0">
         <div class="section-label">
           <FileCode class="section-icon" />
           <span>测试用例（非必选）</span>
+          <!-- 异步加载测试时的提示文案 -->
           <span v-if="isLoadingTests" class="loading-text">加载中...</span>
         </div>
 
+        <!-- ELF 测试列表（来自 riscv-tests，绿色高亮） -->
         <div class="test-list" v-if="filteredElfTests.length > 0">
           <div
             v-for="test in filteredElfTests"
@@ -206,6 +308,7 @@ function disableConfig() {
           </div>
         </div>
 
+        <!-- 教学测试列表（内置参考答案信号） -->
         <div class="test-list" v-if="filteredTests.length > 0">
           <div
             v-for="test in filteredTests"
@@ -224,11 +327,13 @@ function disableConfig() {
           </div>
         </div>
 
+        <!-- 当前场景下无任何配套测试时的占位提示 -->
         <div class="no-tests" v-if="!isLoadingTests && filteredTests.length === 0 && filteredElfTests.length === 0">
           暂无配套测试用例
         </div>
       </div>
 
+      <!-- 自定义信号勾选区（仅在自由模式下展示） -->
       <div class="custom-section" v-if="selectedScenario === 0">
         <div class="section-label">
           <CheckCircle class="section-icon" />
@@ -258,6 +363,7 @@ function disableConfig() {
         </div>
       </div>
 
+      <!-- 当前配置预览区：展示已选测试、信号集合及必要的提示 -->
       <div class="preview-section">
         <div class="section-label">
           <Target class="section-icon" />
@@ -293,6 +399,7 @@ function disableConfig() {
         </div>
       </div>
 
+      <!-- 操作按钮区：根据当前状态显示"禁用 / 加载并运行 / 确认配置" -->
       <div class="actions">
         <button
           v-if="isApplied"
@@ -320,7 +427,7 @@ function disableConfig() {
         </button>
       </div>
 
-      <!-- 使用步骤说明 -->
+      <!-- 使用步骤说明（教学引导文档：6 步走通差分测试流程） -->
       <div class="usage-section">
         <div class="section-label">
           <ListChecks class="section-icon" />

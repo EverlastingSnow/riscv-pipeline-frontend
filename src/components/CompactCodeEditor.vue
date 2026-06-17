@@ -5,6 +5,11 @@ import { Upload, Play, FileCode, AlertCircle, CheckCircle } from 'lucide-vue-nex
 
 const pipelineStore = usePipelineStore();
 
+/**
+ * 编辑器默认示例代码。
+ *
+ * 提示用户必须包含 .text 段、.globl _start 入口并以 ebreak 结尾。
+ */
 const defaultCode = `# - 必须包含 .text 段 - 表示代码段
 # - 必须包含 .globl _start - 声明程序入口点
 # - 代码写在 _start: 标签之后
@@ -18,31 +23,67 @@ _start:
     ebreak
 `;
 
+/**
+ * 当前编辑器中的源代码。
+ */
 const code = ref(defaultCode);
+/**
+ * 是否处于文件拖拽悬停状态。
+ */
 const isDragging = ref(false);
+/**
+ * 编译状态：空闲 / 编译中 / 成功 / 失败。
+ */
 const compileStatus = ref<'idle' | 'compiling' | 'success' | 'error'>('idle');
+/**
+ * 编译错误信息。
+ */
 const compileError = ref('');
+/**
+ * 已上传的文件名（用于界面展示与编译请求）。
+ */
 const uploadedFileName = ref('');
 
-// ★ 中断与异常演示：监听 store.editorCode 的变化，自动填入
+/**
+ * ★ 中断与异常演示：监听 store.editorCode 的变化，自动填入。
+ *
+ * 监听到非空内容时同步到编辑器并清空 store 字段，避免重复触发。
+ */
 watch(() => pipelineStore.editorCode, (newCode) => {
   if (newCode) {
     code.value = newCode;
-    pipelineStore.editorCode = '';  // 清空，避免循环触发
+    // 清空 store 字段，避免循环触发
+    pipelineStore.editorCode = '';
   }
 });
 
+/**
+ * 组件事件：编译并加载完成后通知父组件。
+ */
 const emit = defineEmits<{
   (e: 'compiled'): void;
 }>();
 
+/**
+ * 将当前编辑器中的代码发送到后端编译并加载到 CPU。
+ *
+ * 流程：
+ * 1. 防重复点击（编译中状态直接返回）
+ * 2. POST /api/compile，body 为源代码与文件名
+ * 3. 成功后调用 store.loadElfBinary 注入 ELF
+ * 4. 失败时显示错误信息（支持行级错误列表）
+ *
+ * @returns {Promise<void>} 异步操作完成后 resolve
+ */
 async function compileAndLoad() {
+  // 防止用户在编译过程中重复点击
   if (compileStatus.value === 'compiling') return;
 
   compileStatus.value = 'compiling';
   compileError.value = '';
 
   try {
+    // 异步调用后端编译接口
     const response = await fetch('/api/compile', {
       method: 'POST',
       headers: {
@@ -62,11 +103,14 @@ async function compileAndLoad() {
 
       const elfData = result.elf_data;
       console.log('Calling loadElfBinary with ELF data...');
+      // 将编译得到的 ELF 注入到流水线 store
       pipelineStore.loadElfBinary(elfData);
       console.log('loadElfBinary called');
 
+      // 通知父组件编译加载完成
       emit('compiled');
     } else {
+      // 编译失败：收集错误信息（优先展示行级错误列表）
       compileStatus.value = 'error';
       compileError.value = result.error || 'Compilation failed';
       if (result.line_errors && result.line_errors.length > 0) {
@@ -74,30 +118,50 @@ async function compileAndLoad() {
       }
     }
   } catch (err) {
+    // 网络错误等异常统一处理
     compileStatus.value = 'error';
     compileError.value = `Network error: ${err}`;
   }
 }
 
+/**
+ * 处理拖拽进入/悬停事件：阻止默认行为并显示高亮。
+ *
+ * @param {DragEvent} e 原生拖拽事件
+ */
 function handleDragOver(e: DragEvent) {
   e.preventDefault();
   isDragging.value = true;
 }
 
+/**
+ * 处理拖拽离开事件：清除高亮。
+ */
 function handleDragLeave() {
   isDragging.value = false;
 }
 
+/**
+ * 处理文件拖放事件：读取第一个文件并加载。
+ *
+ * @param {DragEvent} e 原生拖拽事件
+ */
 function handleDrop(e: DragEvent) {
   e.preventDefault();
   isDragging.value = false;
 
+  // 仅取拖入的第一个文件进行加载
   const files = e.dataTransfer?.files;
   if (files && files.length > 0 && files[0]) {
     loadFile(files[0]);
   }
 }
 
+/**
+ * 处理文件选择控件（input[type=file]）的变化事件。
+ *
+ * @param {Event} e input change 事件
+ */
 function handleFileSelect(e: Event) {
   const input = e.target as HTMLInputElement;
   if (input.files && input.files.length > 0 && input.files[0]) {
@@ -105,7 +169,15 @@ function handleFileSelect(e: Event) {
   }
 }
 
+/**
+ * 读取并校验用户上传的汇编文件，校验通过后填入编辑器。
+ *
+ * 仅接受 .S / .s / .asm 后缀的文件。
+ *
+ * @param {File} file 用户上传的文件
+ */
 function loadFile(file: File) {
+  // 文件后缀校验：仅接受 RISC-V 汇编源文件
   if (!file.name.endsWith('.S') && !file.name.endsWith('.s') && !file.name.endsWith('.asm')) {
     compileError.value = 'Please upload a .S or .s assembly file';
     compileStatus.value = 'error';
@@ -113,13 +185,18 @@ function loadFile(file: File) {
   }
 
   uploadedFileName.value = file.name;
+  // 使用 FileReader 异步读取文本内容
   const reader = new FileReader();
   reader.onload = (e) => {
+    // 读取失败时回退为默认代码
     code.value = e.target?.result as string || defaultCode;
   };
   reader.readAsText(file);
 }
 
+/**
+ * 将编辑器恢复为默认示例代码，并清空所有状态。
+ */
 function resetCode() {
   code.value = defaultCode;
   uploadedFileName.value = '';
@@ -130,6 +207,7 @@ function resetCode() {
 
 <template>
   <div class="compact-editor-panel">
+    <!-- 编辑器头部：标题区 -->
     <div class="editor-header">
       <div class="header-left">
         <FileCode class="w-4 h-4 text-blue-500" />
@@ -138,6 +216,7 @@ function resetCode() {
     </div>
 
     <div class="editor-body">
+      <!-- 编辑器主体：支持拖拽上传 -->
       <div
         class="editor-area"
         :class="{ 'drag-over': isDragging }"
@@ -145,6 +224,7 @@ function resetCode() {
         @dragleave="handleDragLeave"
         @drop="handleDrop"
       >
+        <!-- 已上传文件名指示 -->
         <div v-if="uploadedFileName" class="file-indicator">
           {{ uploadedFileName }}
         </div>
@@ -154,12 +234,14 @@ function resetCode() {
           spellcheck="false"
           placeholder="RISC-V汇编代码..."
         ></textarea>
+        <!-- 拖拽时的浮层提示 -->
         <div v-if="isDragging" class="drop-overlay">
           <Upload class="w-6 h-6" />
           <span>拖放文件</span>
         </div>
       </div>
 
+      <!-- 操作按钮区 -->
       <div class="action-bar">
         <label class="upload-btn">
           <Upload class="w-3 h-3" />
@@ -182,11 +264,13 @@ function resetCode() {
         </button>
       </div>
 
+      <!-- 编译成功状态条 -->
       <div v-if="compileStatus === 'success'" class="status-bar success">
         <CheckCircle class="w-3 h-3" />
         <span>编译成功！程序已加载，请点击下一clk或运行按钮！</span>
       </div>
 
+      <!-- 编译失败状态条 -->
       <div v-if="compileStatus === 'error'" class="status-bar error">
         <AlertCircle class="w-3 h-3" />
         <pre class="error-message">{{ compileError }}</pre>

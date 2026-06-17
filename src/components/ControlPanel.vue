@@ -11,9 +11,21 @@ import {
   Cpu,
 } from 'lucide-vue-next';
 
+/** 全局流水线状态实例 */
 const pipelineStore = usePipelineStore();
+
+/**
+ * 自动运行时的指令时间间隔（毫秒）
+ * 用户通过下拉框修改后会同步到 store
+ */
 const runInterval = ref(1000);
 
+/**
+ * 处理时间间隔下拉框变更事件
+ * 将本地状态同步至全局 store，驱动自动运行节奏
+ *
+ * @returns {void}
+ */
 function handleIntervalChange() {
   pipelineStore.setRunInterval(runInterval.value);
 }
@@ -21,14 +33,17 @@ function handleIntervalChange() {
 
 <template>
   <div class="control-panel">
+    <!-- 左侧：Logo 与软件标题 -->
     <div class="logo-section">
       <div class="logo">
         <img src="@/assets/hdu.jpg" class="w-10 h-10" />
       </div>
       <h1 class="title">RV64IMAZicsr_Zifencei 五级流水线虚拟仿真实验软件</h1>
     </div>
-    
+
+    <!-- 中部：运行/控制按钮组 -->
     <div class="button-section">
+      <!-- 自动运行时间间隔选择器 -->
       <div class="interval-section" title="自动运行的指令时间间隔">
         <Clock class="w-4 h-4" title="自动运行的指令时间间隔" />
         <select v-model="runInterval" @change="handleIntervalChange" class="interval-select" title="自动运行的指令时间间隔">
@@ -39,8 +54,9 @@ function handleIntervalChange() {
           <option :value="5000">5s</option>
         </select>
       </div>
-      
-      <button 
+
+      <!-- 单步执行：运行中或比对结果存在时禁用 -->
+      <button
         @click="pipelineStore.nextClock"
         class="control-btn next-btn"
         :disabled="pipelineStore.isRunning || pipelineStore.compareResult !== null"
@@ -48,8 +64,9 @@ function handleIntervalChange() {
         <ChevronRight class="w-4 h-4" />
         <span>下一 clk</span>
       </button>
-      
-      <button 
+
+      <!-- 开始自动运行：运行中或比对结果存在时禁用 -->
+      <button
         @click="pipelineStore.start"
         class="control-btn play-btn"
         :disabled="pipelineStore.isRunning || pipelineStore.compareResult !== null"
@@ -57,8 +74,9 @@ function handleIntervalChange() {
         <Play class="w-4 h-4" />
         <span>运行</span>
       </button>
-      
-      <button 
+
+      <!-- 暂停：仅在运行中可点击 -->
+      <button
         @click="pipelineStore.pause"
         class="control-btn pause-btn"
         :disabled="!pipelineStore.isRunning"
@@ -66,7 +84,8 @@ function handleIntervalChange() {
         <Pause class="w-4 h-4" />
         <span>暂停</span>
       </button>
-      
+
+      <!-- 重置：恢复初始状态 -->
       <button
         @click="pipelineStore.reset"
         class="control-btn reset-btn"
@@ -75,6 +94,7 @@ function handleIntervalChange() {
         <span>重置</span>
       </button>
 
+      <!-- 中部视图切换：流水线细节 ↔ 波形图 -->
       <button
         @click="pipelineStore.toggleCenterView()"
         class="control-btn view-toggle-btn"
@@ -86,7 +106,8 @@ function handleIntervalChange() {
         <span>{{ pipelineStore.centerView === 'waveform' ? '流水线' : '波形' }}</span>
       </button>
     </div>
-    
+
+    <!-- 右侧：当前运行状态指示 -->
     <div class="status-section">
       <div class="status-indicator" :class="{ 'running': pipelineStore.isRunning }">
         <span class="status-dot"></span>

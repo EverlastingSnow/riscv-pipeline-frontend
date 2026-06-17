@@ -17,18 +17,34 @@ import PanelContainer from './components/PanelContainer.vue';
 import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
 import { usePipelineStore } from './stores/pipeline';
 
+/** 全局流水线状态实例，供子组件共享数据 */
 const pipelineStore = usePipelineStore();
 
+/** 左侧面板是否处于折叠态（仅保留折叠按钮，隐藏内容） */
 const isLeftPanelCollapsed = ref(false);
+/** 右侧面板是否处于折叠态 */
 const isRightPanelCollapsed = ref(false);
 
+/**
+ * 窗口尺寸变化时的回调（占位实现）
+ * 当前未承载具体逻辑，保留为扩展点
+ *
+ * @returns {void}
+ */
 const handleResize = () => {
 };
 
+/**
+ * 组件挂载：注册窗口 resize 事件监听
+ * 卸载时对应移除，避免内存泄漏
+ */
 onMounted(() => {
   window.addEventListener('resize', handleResize);
 });
 
+/**
+ * 组件卸载：移除窗口 resize 事件监听
+ */
 onUnmounted(() => {
   window.removeEventListener('resize', handleResize);
 });
@@ -36,10 +52,11 @@ onUnmounted(() => {
 
 <template>
   <div class="app">
-    <!-- 主内容区域 -->
+    <!-- 主内容区域：左中右三栏布局 -->
     <div class="main-row">
-      <!-- 左侧面板区域 -->
+      <!-- 左侧面板区域：含折叠按钮与可折叠内容 -->
       <div class="left-panel-area" :class="{ collapsed: isLeftPanelCollapsed }">
+        <!-- 左侧面板折叠/展开按钮：根据状态切换箭头方向 -->
         <button
           class="collapse-panel-btn left"
           @click="isLeftPanelCollapsed = !isLeftPanelCollapsed"
@@ -48,25 +65,27 @@ onUnmounted(() => {
           <ChevronLeft v-if="!isLeftPanelCollapsed" class="collapse-icon" />
           <ChevronRight v-else class="collapse-icon" />
         </button>
+        <!-- 左侧面板内容（折叠时通过 v-show 隐藏，保留 DOM） -->
         <div v-show="!isLeftPanelCollapsed" class="panel-content">
           <PanelContainer position="left" />
         </div>
       </div>
-      
-      <!-- 中央区域 -->
+
+      <!-- 中央区域：控制面板 + 流水线/波形可视化 -->
       <div class="center-column">
         <!-- 顶部控制面板 -->
         <ControlPanel />
-        
-        <!-- 流水线可视化 / 波形图（互斥占位） -->
+
+        <!-- 流水线可视化 / 波形图（互斥占位，根据 centerView 切换） -->
         <div class="pipeline-section">
           <PipelineEditor v-if="pipelineStore.centerView === 'pipeline'" />
           <WaveformPanel v-else />
         </div>
       </div>
-      
-      <!-- 右侧面板区域 -->
+
+      <!-- 右侧面板区域：与左侧对称 -->
       <div class="right-panel-area" :class="{ collapsed: isRightPanelCollapsed }">
+        <!-- 右侧面板折叠/展开按钮 -->
         <button
           class="collapse-panel-btn right"
           @click="isRightPanelCollapsed = !isRightPanelCollapsed"
@@ -75,18 +94,19 @@ onUnmounted(() => {
           <ChevronRight v-if="!isRightPanelCollapsed" class="collapse-icon" />
           <ChevronLeft v-else class="collapse-icon" />
         </button>
+        <!-- 右侧面板内容 -->
         <div v-show="!isRightPanelCollapsed" class="panel-content">
           <PanelContainer position="right" />
         </div>
       </div>
     </div>
-    
-    <!-- 底部统计栏 -->
+
+    <!-- 底部统计栏：使用时长、访问次数等 -->
     <div class="bottom-stats-bar">
       <UsageStats />
     </div>
-    
-    <!-- 弹窗组件 -->
+
+    <!-- 弹窗组件：仅由 store 内部控制显隐，模板中始终挂载 -->
     <RegisterModal />
     <CsrModal />
     <AluModal />
@@ -94,8 +114,8 @@ onUnmounted(() => {
     <DiffResultModal />
     <DifftestInputModal />
     <HaltedModal />
-    
-    <!-- Pipeline Register 弹窗 -->
+
+    <!-- 流水线寄存器详情弹窗：仅在选中具体寄存器时挂载以传递 ID -->
     <PipelineRegisterModal
       v-if="pipelineStore.selectedPipelineRegister"
       :registerId="pipelineStore.selectedPipelineRegister.id"

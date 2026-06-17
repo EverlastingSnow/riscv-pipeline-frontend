@@ -1,16 +1,30 @@
+/**
+ * CSR 寄存器弹窗组件
+ * 作用：以表格 + 位分解的形式，集中展示 RISC-V Machine-mode 下
+ *      mtvec / mepc / mcause / mtval / mstatus / mie / mip 等关键 CSR 寄存器的当前值
+ */
 <script setup lang="ts">
 import { computed } from 'vue';
 import { usePipelineStore } from '../stores/pipeline';
 import DraggableModal from './DraggableModal.vue';
 import { Settings } from 'lucide-vue-next';
 
+/** 全局流水线状态存储：从中读取 CSR 寄存器快照与最近一次 Trap 类型 */
 const pipelineStore = usePipelineStore();
 
+/** 当前 CSR 寄存器快照（含 mtvec/mepc/mcause/mtval/mstatus/mie/mip 等字段） */
 const csrState = computed(() => pipelineStore.csrState);
 
+/**
+ * 将任意形式（数字 / 字符串 / 0x 开头）的 CSR 值规范成统一大写 0x 十六进制字符串
+ * 空值与 0 统一展示为 '0x0'，避免前端出现 '0x' / '0' 等不一致显示
+ * @param value CSR 原始值
+ * @returns 规范化后的十六进制字符串
+ */
 const formatValue = (value: string | number | undefined): string => {
   if (value === undefined || value === null || value === '' || value === '0x' || value === '0X') return '0x0';
   const strVal = typeof value === 'string' ? value : value.toString();
+  // 去掉可能存在的 0x 前缀，统一走 BigInt 解析避免 JS Number 精度丢失
   const hexVal = strVal.startsWith('0x') || strVal.startsWith('0X') ? strVal.slice(2) : strVal;
   try {
     const bigIntVal = BigInt('0x' + hexVal);
@@ -21,6 +35,11 @@ const formatValue = (value: string | number | undefined): string => {
   }
 };
 
+/**
+ * 判断 CSR 值是否非零（用于给非零寄存器加高亮样式）
+ * @param value CSR 原始值
+ * @returns 是否存在非零有效数据
+ */
 const hasValue = (value: string | number | undefined): boolean => {
   if (value === undefined || value === null || value === '' || value === '0x' || value === '0X') return false;
   const strVal = typeof value === 'string' ? value : value.toString();
@@ -32,6 +51,13 @@ const hasValue = (value: string | number | undefined): boolean => {
   }
 };
 
+/**
+ * 将十六进制字符串转换为固定宽度的二进制字符串
+ * 用于 mstatus / mie / mip 的按位分解展示
+ * @param hex 待转换的 hex 字符串
+ * @param width 目标位数（默认 64 位）
+ * @returns 左侧补 0 的二进制字符串
+ */
 const hexToBinary = (hex: string | undefined, width = 64): string => {
   if (!hex || hex === '0x0' || hex === '0X0') return '0'.padStart(width, '0');
   const hexVal = hex.startsWith('0x') || hex.startsWith('0X') ? hex.slice(2) : hex;
@@ -42,26 +68,36 @@ const hexToBinary = (hex: string | undefined, width = 64): string => {
   }
 };
 
+/**
+ * CSR 字段描述结构
+ * @property bit   位索引（0 表示最低位）
+ * @property name  字段/位名（如 MIE、MSIP）
+ * @property desc  字段含义说明
+ */
 interface CsrField {
   bit: number;
   name: string;
   desc: string;
 }
 
-// mstatus 关键字段
+/** mstatus 中重点关注的状态位：MIE / MPIE / MPP */
 const mstatusFields: CsrField[] = [
   { bit: 3,  name: 'MIE',  desc: 'Machine Interrupt Enable' },
   { bit: 7,  name: 'MPIE', desc: 'Previous MIE (saved on trap)' },
   { bit: 12, name: 'MPP',  desc: 'Previous Privilege (2 bits)' },
 ];
 
-// mie / mip 关键位（教学演示用）
+/** mie / mip 共用的关键中断位定义（MSIP 软件中断 / MTIP 定时器中断 / MEIP 外部中断） */
 const interruptBits: CsrField[] = [
   { bit: 3,  name: 'MSIP',  desc: 'Machine Software Interrupt Pending' },
   { bit: 7,  name: 'MTIP',  desc: 'Machine Timer Interrupt Pending' },
   { bit: 11, name: 'MEIP',  desc: 'Machine External Interrupt Pending' },
 ];
 
+/**
+ * CSR 寄存器列表（含名称 / 地址 / 说明 / 当前值），供表格区域 v-for 渲染
+ * 地址取自 RISC-V Machine-mode 标准 CSR 地址空间
+ */
 const csrRows = computed(() => {
   const csr = csrState.value;
   return [
@@ -75,6 +111,10 @@ const csrRows = computed(() => {
   ];
 });
 
+/**
+ * mstatus 各关注位的当前值
+ * 关键：bin[64-1-bit] 用大端序索引从二进制串中取出对应位的 '0'/'1'
+ */
 const mstatusBreakdown = computed(() => {
   const bin = hexToBinary(csrState.value?.mstatus, 64);
   return mstatusFields.map(f => ({
@@ -83,6 +123,9 @@ const mstatusBreakdown = computed(() => {
   }));
 });
 
+/**
+ * mie 中断使能位的当前值
+ */
 const mieBreakdown = computed(() => {
   const bin = hexToBinary(csrState.value?.mie, 64);
   return interruptBits.map(f => ({
@@ -91,6 +134,9 @@ const mieBreakdown = computed(() => {
   }));
 });
 
+/**
+ * mip 中断 pending 位的当前值
+ */
 const mipBreakdown = computed(() => {
   const bin = hexToBinary(csrState.value?.mip, 64);
   return interruptBits.map(f => ({
@@ -99,6 +145,12 @@ const mipBreakdown = computed(() => {
   }));
 });
 
+/**
+ * 当前 Trap 类型的中文标签
+ * - 'interrupt' → 中断
+ * - 'exception' → 异常
+ * - 其他（默认）→ 空闲
+ */
 const trapTypeLabel = computed(() => {
   switch (pipelineStore.lastTrapType) {
     case 'interrupt': return '中断 (Interrupt)';
@@ -116,7 +168,7 @@ const trapTypeLabel = computed(() => {
     @close="pipelineStore.closeModal('csr')"
   >
     <div class="csr-modal">
-      <!-- 顶部状态条 -->
+      <!-- 顶部：当前 Trap 状态条（Machine-mode CSR 标题 + 空闲/中断/异常标签） -->
       <div class="csr-header">
         <Settings class="w-6 h-6 text-emerald-500" />
         <div class="csr-title">
@@ -125,7 +177,7 @@ const trapTypeLabel = computed(() => {
         </div>
       </div>
 
-      <!-- CSR 寄存器值表 -->
+      <!-- CSR 当前值卡片网格：mtvec / mepc / mcause / mtval / mstatus / mie / mip -->
       <div class="csr-section">
         <div class="section-header">
           <h4>CSR 当前值</h4>
@@ -147,7 +199,7 @@ const trapTypeLabel = computed(() => {
         </div>
       </div>
 
-      <!-- mstatus 字段分解 -->
+      <!-- mstatus 关键位（MIE / MPIE / MPP）的逐位取值与含义 -->
       <div class="csr-section">
         <div class="section-header">
           <h4>mstatus 字段分解</h4>
@@ -167,7 +219,7 @@ const trapTypeLabel = computed(() => {
         </div>
       </div>
 
-      <!-- mie / mip 中断位分解 -->
+      <!-- mie / mip 中断位对照表：MSIP / MTIP / MEIP 三类中断源的使能与 pending 状态 -->
       <div class="csr-section">
         <div class="section-header">
           <h4>mie / mip 中断位分解</h4>
@@ -202,6 +254,7 @@ const trapTypeLabel = computed(() => {
         </table>
       </div>
 
+      <!-- 底部：Trap 处理与中断清除的教学提示（保留原 ★ 注释） -->
       <div class="info-note">
         ★ Trap 入口 (mepc/mcause/mtval) 与中断/异常使能 (MIE/MPIE) 的变化可对照上方表格。<br />
         点击流水线中的"触发软件中断"按钮 → mip.MSIP 由 0 → 1；handler 必须显式 csrw mip 清 pending。

@@ -1,15 +1,29 @@
+/**
+ * 紧凑型流水线信息显示组件
+ * 作用：以表格 + 分阶段列表的形式，集中展示 IF/ID/EXE/MEM/WB 各阶段的关键信号
+ */
 <script setup lang="ts">
 import { computed } from 'vue';
 import { usePipelineStore } from '../stores/pipeline';
 
+/** 全局流水线状态存储实例，用于读取后端推送的 signals 信号集合 */
 const pipelineStore = usePipelineStore();
 
+/**
+ * 将指令机器码格式化为 8 位十六进制字符串
+ * @param inst 指令机器码（数字 / 字符串 / undefined / null）
+ * @returns 8 位大写十六进制字符串；空值或 0 返回 'NOP'
+ */
 const formatInst = (inst: any): string => {
   if (inst === undefined || inst === null || inst === 0) return 'NOP';
   return '0x' + Number(inst).toString(16).toUpperCase().padStart(8, '0');
 };
 
-// 统一把后端信号（可能是 0x 字符串 / 大整数字符串 / 普通数字）规范成 hex 字符串
+/**
+ * 统一把后端信号（可能是 0x 字符串 / 大整数字符串 / 普通数字）规范成 hex 字符串
+ * @param val 任意后端信号值
+ * @returns 规范化的十六进制字符串
+ */
 const formatHex = (val: any): string => {
   if (val === undefined || val === null) return '0x0';
   const strVal = String(val);
@@ -29,7 +43,11 @@ const formatHex = (val: any): string => {
   return '0x' + n.toString(16).toUpperCase();
 };
 
-// 控制信号（valid/wen/ren/branch_taken 等）转成 0/1 文本
+/**
+ * 控制信号（valid/wen/ren/branch_taken 等）转成 0/1 文本
+ * @param val 原始控制信号（boolean / 字符串 / 数字）
+ * @returns '0'、'1' 或原始字符串
+ */
 const formatBit = (val: any): string => {
   if (val === undefined || val === null) return '-';
   if (typeof val === 'boolean') return val ? '1' : '0';
@@ -39,6 +57,11 @@ const formatBit = (val: any): string => {
   return s;
 };
 
+/**
+ * 计算 PC_next 的最终取值
+ * 规则：若 EX/MEM 阶段发生分支跳转（branch_taken=1），则显示分支目标地址；
+ *      否则显示 IF/ID 阶段寄存器内的 PC_next 预测值
+ */
 const pcNextValue = computed(() => {
   const branchTaken = pipelineStore.signals?.ex_mem?.branch_taken;
   const branchTarget = pipelineStore.signals?.ex_mem?.branch_target;
@@ -48,7 +71,10 @@ const pcNextValue = computed(() => {
   return pipelineStore.signals?.if_id?.PC_next || '0x0';
 });
 
-// IF/ID 寄存器当前值 → Fetch Unit
+/**
+ * IF/ID 寄存器当前值 → Fetch Unit
+ * 取自 if_id 流水线寄存器的 pc/PC_next/inst/asm/valid/allow_to_go 等信号
+ */
 const fetchUnit = computed(() => {
   const s = pipelineStore.signals?.if_id || {};
   return [
@@ -61,7 +87,10 @@ const fetchUnit = computed(() => {
   ];
 });
 
-// ID/EX 寄存器当前值 → Decode Unit
+/**
+ * ID/EX 寄存器当前值 → Decode Unit
+ * 包含源寄存器号、源寄存器数据（转发前）、立即数等译码阶段信息
+ */
 const decodeUnit = computed(() => {
   const s = pipelineStore.signals?.id_ex || {};
   return [
@@ -77,7 +106,10 @@ const decodeUnit = computed(() => {
   ];
 });
 
-// EX 阶段执行结果 → Execute Unit（优先用 execute.*，缺字段时退回 id_ex 转发值）
+/**
+ * EX 阶段执行结果 → Execute Unit
+ * 优先使用 execute.* 实时输出；缺字段时回退到 id_ex 转发值
+ */
 const executeUnit = computed(() => {
   const ex = pipelineStore.signals?.execute || {};
   const idEx = pipelineStore.signals?.id_ex || {};
@@ -91,7 +123,10 @@ const executeUnit = computed(() => {
   ];
 });
 
-// MEM 阶段访存结果 → Memory Unit
+/**
+ * MEM 阶段访存结果 → Memory Unit
+ * 取自 datamem 信号组的地址/写使能/读使能/写数据/读数据
+ */
 const memoryUnit = computed(() => {
   const dm = pipelineStore.signals?.datamem || {};
   const exMem = pipelineStore.signals?.ex_mem || {};
@@ -104,7 +139,10 @@ const memoryUnit = computed(() => {
   ];
 });
 
-// WB 阶段回写结果 → WriteBack Unit
+/**
+ * WB 阶段回写结果 → WriteBack Unit
+ * 展示写回寄存器堆的使能、目标寄存器号和写入数据
+ */
 const writebackUnit = computed(() => {
   const wb = pipelineStore.signals?.writeback || {};
   return [
@@ -121,7 +159,8 @@ const writebackUnit = computed(() => {
       <span class="title">流水线寄存器</span>
     </div>
     <div class="content-area">
-      <div class="register-table">
+      <!-- 流水线寄存器状态表：PC_next 与 IF/ID/EX/MEM/WB 各段寄存器 -->
+    <div class="register-table">
         <div class="table-header">
           <span>寄存器</span>
           <span>地址</span>
@@ -164,6 +203,7 @@ const writebackUnit = computed(() => {
       <div class="stages-section">
         <div class="stages-header">按阶段信号</div>
 
+        <!-- IF 阶段：取指单元信号 -->
         <div class="stage-group stage-fetch">
           <div class="stage-title">IF · Fetch Unit</div>
           <div class="stage-row" v-for="row in fetchUnit" :key="row.label">
@@ -172,6 +212,7 @@ const writebackUnit = computed(() => {
           </div>
         </div>
 
+        <!-- ID 阶段：译码单元信号 -->
         <div class="stage-group stage-decode">
           <div class="stage-title">ID · Decode Unit</div>
           <div class="stage-row" v-for="row in decodeUnit" :key="row.label">
@@ -180,6 +221,7 @@ const writebackUnit = computed(() => {
           </div>
         </div>
 
+        <!-- EXE 阶段：执行单元信号 -->
         <div class="stage-group stage-execute">
           <div class="stage-title">EXE · Execute Unit</div>
           <div class="stage-row" v-for="row in executeUnit" :key="row.label">
@@ -188,6 +230,7 @@ const writebackUnit = computed(() => {
           </div>
         </div>
 
+        <!-- MEM 阶段：访存单元信号 -->
         <div class="stage-group stage-memory">
           <div class="stage-title">MEM · Memory Unit</div>
           <div class="stage-row" v-for="row in memoryUnit" :key="row.label">
@@ -196,6 +239,7 @@ const writebackUnit = computed(() => {
           </div>
         </div>
 
+        <!-- WB 阶段：写回单元信号 -->
         <div class="stage-group stage-writeback">
           <div class="stage-title">WB · WriteBack Unit</div>
           <div class="stage-row" v-for="row in writebackUnit" :key="row.label">

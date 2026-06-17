@@ -2,7 +2,7 @@
 import { computed } from 'vue';
 import { usePipelineStore } from '../stores/pipeline';
 import DraggableModal from './DraggableModal.vue';
-import { 
+import {
   AlertTriangle,
   CheckCircle,
   XCircle,
@@ -12,14 +12,27 @@ import {
 
 const pipelineStore = usePipelineStore();
 
+/**
+ * 组件事件定义。
+ *
+ * @event close - 请求关闭弹窗时触发
+ */
 const emit = defineEmits<{
   (e: 'close'): void;
 }>();
 
+/** 当前差异比对结果（golden vs user），null 表示没有结果不展示弹窗 */
 const diffResult = computed(() => pipelineStore.compareResult);
 
+/**
+ * 停止差分测试：通知 store 停止后续运行，并通知父组件关闭弹窗。
+ *
+ * @returns {void}
+ */
 function stopRun() {
+  // 终止后端继续跑当前用例
   pipelineStore.stopAfterDiff();
+  // 通知父组件关闭自身
   emit('close');
 }
 </script>
@@ -30,7 +43,9 @@ function stopRun() {
     title="差异检测结果"
     @close="emit('close')"
   >
+    <!-- 仅在有 diffResult 时才渲染内容，避免空数据访问 -->
     <div class="diff-result-modal" v-if="diffResult">
+      <!-- 顶部状态头：根据是否检测到差异切换错误样式 -->
       <div class="result-header" :class="{ error: diffResult.detected }">
         <AlertTriangle class="w-10 h-10 text-red-500" />
         <div class="result-title">
@@ -39,16 +54,19 @@ function stopRun() {
         </div>
       </div>
 
+      <!-- 附加说明信息：后端在某些情况下会附带文字解释 -->
       <div class="message-section" v-if="diffResult.message">
         <p>{{ diffResult.message }}</p>
       </div>
 
+      <!-- 状态对比区域：左右并排展示 golden 与 user 的寄存器写回情况 -->
       <div class="comparison-section">
         <div class="comparison-header">
           <h4>状态对比</h4>
         </div>
-        
+
         <div class="comparison-grid">
+          <!-- Golden 列：后端默认的标准结果 -->
           <div class="comparison-column golden">
             <div class="column-header">
               <CheckCircle class="w-4 h-4 text-green-500" />
@@ -59,6 +77,7 @@ function stopRun() {
                 <span class="label">PC:</span>
                 <span class="value">{{ diffResult.goldenPC || 'N/A' }}</span>
               </div>
+              <!-- 仅当 goldenResult 存在时展示寄存器写回详情 -->
               <template v-if="diffResult.goldenResult">
                 <div class="info-row">
                   <span class="label">RegWrite:</span>
@@ -76,10 +95,12 @@ function stopRun() {
             </div>
           </div>
 
+          <!-- 中间箭头：视觉上表示对比方向 -->
           <div class="comparison-arrow">
             <ArrowRight class="w-6 h-6 text-gray-400" />
           </div>
 
+          <!-- User 列：用户输入/前端模拟的结果，与 golden 对比 -->
           <div class="comparison-column user">
             <div class="column-header">
               <XCircle class="w-4 h-4 text-red-500" />
@@ -90,6 +111,7 @@ function stopRun() {
                 <span class="label">PC:</span>
                 <span class="value">{{ diffResult.userPC || 'N/A' }}</span>
               </div>
+              <!-- 仅当 userResult 存在时展示寄存器写回详情；不一致字段加 mismatch 高亮 -->
               <template v-if="diffResult.userResult">
                 <div class="info-row">
                   <span class="label">RegWrite:</span>
@@ -115,6 +137,7 @@ function stopRun() {
         </div>
       </div>
 
+      <!-- 操作区：提供停止测试的醒目按钮 -->
       <div class="actions">
         <button class="btn-stop-full" @click="stopRun">
           <Square class="w-4 h-4" />

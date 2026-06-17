@@ -1,6 +1,17 @@
-// 模拟数据 - 用于前端开发和测试
+/**
+ * 模拟数据
+ *
+ * 提供前端开发与测试用的默认 CPU 状态、寄存器、ALU 数据、控制信号等。
+ * 当 WebSocket 未连接或后端未启动时，前端回退使用本文件的数据保证 UI 不空。
+ */
 import type { CPUState, RegisterData, ALUData, ControlSignalsData } from '../types';
 
+/**
+ * 默认 CPU 状态。
+ *
+ * 初始 cycle=0、PC 指向 0x7fffffff、所有数据流与控制信号列表都为空
+ * （模板数据用注释占位，方便后续调试时按需启用）。
+ */
 export const mockCPUState: CPUState = {
   timestamp: Date.now(),
   cycle: 0,
@@ -19,27 +30,38 @@ export const mockCPUState: CPUState = {
     // { id: 'decodeStage_allow_to_go', value: '1' },
   ],
   modules: {
+    // 取指单元：当前 PC 与下一拍 PC
     fetchUnit: {
       pc: '0x7fffffff',
       nextPc: '0x80000000',
     },
+    // 译码单元：原始指令字与 7 位操作码
     decodeUnit: {
       instruction: '0x00000000',
       opcode: '0',
     },
+    // 执行单元：ALU 运算结果与 zero 标志
     executeUnit: {
       aluResult: '0x00000000000',
       zero: false,
     },
+    // 访存单元：从数据内存读出的数据（load 指令时才有值）
     memoryUnit: {
       memReadData: null,
     },
+    // 写回单元：最终写回寄存器堆的数据
     writeBackUnit: {
       writeData: '0x000000000000',
     },
   },
 };
 
+/**
+ * 默认寄存器列表。
+ *
+ * 包含 32 个通用寄存器 x0～x31 与 CSR 寄存器（mstatus/mie/mip/mtvec/mepc/mcause），
+ * 全部初始化为 0。CSR 寄存器用于中断与异常演示。
+ */
 export const mockRegisters: RegisterData[] = [
   { name: 'x0', value: '0x00000000' },
   { name: 'x1', value: '0x00000000' },
@@ -81,6 +103,9 @@ export const mockRegisters: RegisterData[] = [
   { name: 'mcause', value: '0x00000000' },
 ];
 
+/**
+ * 默认 ALU 数据：两个操作数、运算类型、结果均为 0 / NONE。
+ */
 export const mockALUData: ALUData = {
   operand1: '0x0000000000000000',
   operand2: '0x0000000000000000',
@@ -88,6 +113,11 @@ export const mockALUData: ALUData = {
   result: '0x0000000000000000',
 };
 
+/**
+ * 默认控制信号数据。
+ *
+ * inputs / outputs 列表中预置了多个示例项（已注释），可在调试时按需取消注释启用。
+ */
 export const mockControlSignals: ControlSignalsData = {
   inputs: [
     // { id: 'flush-fetch', name: 'flushFetch', source: 'Execute Unit', target: 'Ctrl', active: false },
@@ -115,8 +145,16 @@ export const mockControlSignals: ControlSignalsData = {
   ],
 };
 
-// 生成随机CPU状态（用于演示）
+/**
+ * 生成随机 CPU 状态（用于本地演示与压力测试）。
+ *
+ * 随机从预定义的数据流 / 控制信号池中抽取若干条，PC 与指令也随机生成，
+ * 模拟一个持续运行但每拍都不同的 CPU 状态。
+ *
+ * @returns 随机生成的 CPUState
+ */
 export const generateRandomCPUState = (): CPUState => {
+  // 全部数据流 ID 池，覆盖了 instMEM / fetch / decode / regfile / EX/MEM / MEM/WB / WB 等所有通路
   const allDataFlows = [
     // instMEM 相关
     'instMEM_en',
@@ -161,7 +199,8 @@ export const generateRandomCPUState = (): CPUState => {
     'memoryInfo',
     'writeBackInfo',
   ];
-  
+
+  // 全部控制信号 ID 池
   const allControlSignals = [
     'fetchUnit_allow_to_go',
     'decodeStage_allow_to_fetch',
@@ -173,33 +212,44 @@ export const generateRandomCPUState = (): CPUState => {
     'memoryStage_allow_to_go',
     'memoryUnit_do_flush',
   ];
-  
+
+  // 每拍随机 2~6 条数据流，2~5 条控制信号
   const numDataFlows = Math.floor(Math.random() * 5) + 2;
   const numControlSignals = Math.floor(Math.random() * 4) + 2;
 
   return {
     timestamp: Date.now(),
+    // cycle 限制在 0~999 以方便观察
     cycle: Math.floor(Math.random() * 1000),
+    // 随机 32 位 PC
     pc: `0x${Math.floor(Math.random() * 0xFFFFFFFF).toString(16).padStart(8, '0')}`,
+    // 随机 32 位指令
     currentInstruction: `0x${Math.floor(Math.random() * 0xFFFFFFFF).toString(16).padStart(8, '0')}`,
+    // 随机抽取若干数据流（sort+slice 简单洗牌）
     activeDataFlows: allDataFlows.sort(() => 0.5 - Math.random()).slice(0, numDataFlows).map(id => ({ id, value: '1' })),
+    // 随机抽取若干控制信号
     activeControlSignals: allControlSignals.sort(() => 0.5 - Math.random()).slice(0, numControlSignals).map(id => ({ id, value: '1' })),
     modules: {
+      // 取指单元：当前 PC + 随机下一拍 PC（粗略 +4）
       fetchUnit: {
         pc: `0x${Math.floor(Math.random() * 0xFFFFFFFF).toString(16).padStart(8, '0')}`,
         nextPc: `0x${(parseInt(`0x${Math.floor(Math.random() * 0xFFFFFFFF).toString(16).padStart(8, '0')}`, 16) + 4).toString(16).padStart(8, '0')}`,
       },
+      // 译码单元：随机指令字与 7 位操作码
       decodeUnit: {
         instruction: `0x${Math.floor(Math.random() * 0xFFFFFFFF).toString(16).padStart(8, '0')}`,
         opcode: Math.floor(Math.random() * 128).toString(2).padStart(7, '0'),
       },
+      // 执行单元：随机 ALU 结果 + 随机 zero
       executeUnit: {
         aluResult: `0x${Math.floor(Math.random() * 0xFFFFFFFF).toString(16).padStart(8, '0')}`,
         zero: Math.random() > 0.5,
       },
+      // 访存单元：一半概率有读出数据
       memoryUnit: {
         memReadData: Math.random() > 0.5 ? `0x${Math.floor(Math.random() * 0xFFFFFFFF).toString(16).padStart(8, '0')}` : null,
       },
+      // 写回单元：随机写回数据
       writeBackUnit: {
         writeData: `0x${Math.floor(Math.random() * 0xFFFFFFFF).toString(16).padStart(8, '0')}`,
       },

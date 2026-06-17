@@ -3,18 +3,31 @@ import { computed } from 'vue';
 import { usePanelStore, type PanelState } from '../stores/panel';
 import { Cpu, Code, Activity, FlaskConical } from 'lucide-vue-next';
 
+/**
+ * 面板标签栏组件的 props 定义。
+ *
+ * @property {'left' | 'right'} position - 标签栏位置，决定从 store 读取哪一组面板
+ */
 const props = defineProps<{
   position: 'left' | 'right';
 }>();
 
 const panelStore = usePanelStore();
 
+/**
+ * 当前标签栏展示的面板列表：根据 position 从 store 中取出对应侧的标签集合。
+ *
+ * @returns {PanelState[]} 当前可见的标签数组
+ */
 const panels = computed(() => {
   return props.position === 'left'
     ? panelStore.leftPanels
     : panelStore.rightPanels;
 });
 
+/**
+ * 图标名称到 Lucide 图标组件的映射表，用于在模板中动态渲染图标。
+ */
 const iconComponents: Record<string, any> = {
   cpu: Cpu,
   code: Code,
@@ -22,18 +35,38 @@ const iconComponents: Record<string, any> = {
   flask: FlaskConical
 };
 
+/**
+ * 根据图标名称获取对应的图标组件，未匹配时回退到通用 Activity 图标。
+ *
+ * @param {string} iconName - 图标名称键
+ * @returns {any} 对应的 Vue 图标组件
+ */
 function getIcon(iconName: string) {
   return iconComponents[iconName] || Activity;
 }
 
+/**
+ * 处理标签点击：当前激活的标签再次点击会展开面板，未激活的标签则切换为激活态。
+ *
+ * @param {PanelState} panel - 被点击的标签对象
+ * @returns {void}
+ */
 function handleTabClick(panel: PanelState) {
   if (panel.isActive) {
+    // 已激活态下再次点击，进入展开/收起切换
     panelStore.expandPanel(panel.id);
   } else {
+    // 未激活态点击，切换为激活
     panelStore.setActivePanel(panel.id);
   }
 }
 
+/**
+ * 根据面板状态拼接标签按钮的 class，用于响应式样式切换。
+ *
+ * @param {PanelState} panel - 标签对象
+ * @returns {Record<string, boolean>} class 名 -> 是否启用的映射
+ */
 function getTabClass(panel: PanelState) {
   return {
     'tab-item': true,
@@ -44,10 +77,12 @@ function getTabClass(panel: PanelState) {
 </script>
 
 <template>
+  <!-- 面板标签栏容器：根据 position 添加左侧或右侧边框样式 -->
   <div
     class="panel-tab-bar"
     :class="[`position-${position}`]"
   >
+    <!-- 标签列表：纵向排列的按钮组 -->
     <div class="tab-list">
       <button
         v-for="panel in panels"
@@ -56,6 +91,7 @@ function getTabClass(panel: PanelState) {
         @click="handleTabClick(panel)"
         :title="panel.title"
       >
+        <!-- 动态渲染图标组件，class 来自 store 中配置的 icon 字段 -->
         <component :is="getIcon(panel.icon)" class="tab-icon" />
         <span class="tab-title">{{ panel.title }}</span>
       </button>

@@ -5,12 +5,16 @@ import { Zap, Clock, Radio, Eraser, Cpu, BookOpen, FileCode, AlertTriangle } fro
 
 const pipelineStore = usePipelineStore();
 
-// ★ 当前激活的演示模式：异常 / 中断
+/**
+ * ★ 当前激活的演示模式：异常 / 中断
+ */
 const activeDemo = ref<'exception' | 'interrupt'>('interrupt');
 
-// ============================================================
-// 异常演示程序：ecall 异常识别 → 跳转 → handler 处理 → mret 返回 → 继续执行
-// ============================================================
+/**
+ * 异常演示汇编程序源码。
+ *
+ * 流程：_start → ecall (异常) → trap_handler (mtvec) → 推进 mepc + x11++ → mret → 继续执行 → ebreak 兜底停机。
+ */
 const EXCEPTION_DEMO_PROGRAM = `# ===== 异常演示程序（ecall → handler → mret → 继续执行） =====
 # 流程：
 #   _start → ecall (异常)
@@ -78,9 +82,11 @@ ret_from_trap:
     mret
 `;
 
-// ============================================================
-// 中断演示程序：si / ti / ei 三源 + 按源清 pending
-// ============================================================
+/**
+ * 中断演示汇编程序源码。
+ *
+ * 演示 si / ti / ei 三种中断源路由以及按源清 pending 的完整流程。
+ */
 const INTERRUPT_DEMO_PROGRAM = `# ===== 中断演示程序（si / ti / ei 三源完整路由） =====
 # 内存布局：
 #   0x80000000: _start
@@ -164,6 +170,9 @@ ret_from_trap:
     mret
 `;
 
+/**
+ * 当前 Trap 类型对应的中文显示文本。
+ */
 const trapTypeLabel = computed(() => {
   switch (pipelineStore.lastTrapType) {
     case 'interrupt': return 'CPU中断 (Interrupt)';
@@ -172,6 +181,9 @@ const trapTypeLabel = computed(() => {
   }
 });
 
+/**
+ * 当前 Trap 类型对应的高亮颜色类。
+ */
 const trapTypeColor = computed(() => {
   switch (pipelineStore.lastTrapType) {
     case 'interrupt': return 'text-amber-600';
@@ -180,84 +192,172 @@ const trapTypeColor = computed(() => {
   }
 });
 
-// ★ 切换演示模式（仅切标签，不自动加载程序）
+/**
+ * ★ 切换演示模式（仅切标签，不自动加载程序）
+ *
+ * @param {'exception' | 'interrupt'} demo 目标演示模式
+ */
 function switchDemo(demo: 'exception' | 'interrupt') {
   activeDemo.value = demo;
 }
 
-// ★ 分别加载两个示例程序
+/**
+ * ★ 加载异常演示程序到代码编辑器。
+ */
 function loadExceptionDemo() {
   activeDemo.value = 'exception';
   pipelineStore.setEditorCode(EXCEPTION_DEMO_PROGRAM);
 }
+
+/**
+ * ★ 加载中断演示程序到代码编辑器。
+ */
 function loadInterruptDemo() {
   activeDemo.value = 'interrupt';
   pipelineStore.setEditorCode(INTERRUPT_DEMO_PROGRAM);
 }
 
-// ★ 三种中断源触发（颜色与按钮配色对应）
+/**
+ * ★ 触发软件中断 SI（Software Interrupt，对应 mip bit3）。
+ */
 function triggerSi() { pipelineStore.triggerInterruptSrc('si'); }
+
+/**
+ * ★ 触发定时器中断 TI（Timer Interrupt，对应 mip bit7）。
+ */
 function triggerTi() { pipelineStore.triggerInterruptSrc('ti'); }
+
+/**
+ * ★ 触发外部中断 EI（External Interrupt，对应 mip bit11）。
+ */
 function triggerEi() { pipelineStore.triggerInterruptSrc('ei'); }
 
-// ★ 兜底：清空 mip（后端无 write_csr，降级为 reset 整个 CPU）
+/**
+ * ★ 兜底：清空 mip（后端无 write_csr，降级为 reset 整个 CPU）。
+ */
 function resetMipFallback() { pipelineStore.resetMip(); }
 
+/**
+ * 将任意进制的字符串值格式化为统一的 0x 开头大写十六进制。
+ *
+ * @param {string | undefined} val 原始字符串
+ * @returns {string} 格式化后的十六进制字符串
+ */
 function parseHexValue(val: string | undefined): string {
+  // 空值直接输出 0x0
   if (!val) return '0x0';
+  // 已是 0x 形式则只做大小写转换
   if (val.startsWith('0x') || val.startsWith('0X')) return val.toUpperCase();
   try {
+    // 使用 BigInt 转换任意进制字符串
     return '0x' + BigInt(val).toString(16).toUpperCase();
   } catch {
+    // 解析失败回退为原始字符串
     return val;
   }
 }
 
+/**
+ * 解析 mstatus 寄存器的 MIE / MPIE / MPP 三个关键字段。
+ *
+ * - MIE 在 bit3
+ * - MPIE 在 bit7
+ * - MPP 在 bit[12:11]
+ *
+ * @param {string | undefined} val mstatus 的十六进制字符串
+ * @returns {{ MIE: string; MPIE: string; MPP: string }} 各字段的 0/1 字符串
+ */
 function mstatusBreakdown(val: string | undefined): { MIE: string; MPIE: string; MPP: string } {
   const hex = val || '0x0';
   try {
+    // 使用 BigInt 安全处理大整数
     const n = BigInt(hex);
+    // 提取 MIE（bit3）、MPIE（bit7）、MPP（bit[12:11]）
     const mie = (n >> 3n) & 1n;
     const mpie = (n >> 7n) & 1n;
     const mpp = (n >> 11n) & 0x3n;
     return { MIE: mie.toString(), MPIE: mpie.toString(), MPP: mpp.toString() };
   } catch {
+    // 解析失败时回退到全 0
     return { MIE: '0', MPIE: '0', MPP: '0' };
   }
 }
 
-// ★ mip / mie 三位分解（位 3=MSIP/IE、位 7=MTIP/IE、位 11=MEIP/IE）
+/**
+ * 安全地将字符串解析为 BigInt，解析失败时返回 0n。
+ *
+ * @param {string | undefined} val 任意进制的字符串
+ * @returns {bigint} 解析后的 BigInt
+ */
 function safeBigInt(val: string | undefined): bigint {
   try { return BigInt(val || '0x0'); } catch { return 0n; }
 }
+
+/**
+ * 解析 mip 寄存器的 MSIP / MTIP / MEIP 三位。
+ *
+ * - MSIP 在 bit3
+ * - MTIP 在 bit7
+ * - MEIP 在 bit11
+ *
+ * @param {string | undefined} val mip 的十六进制字符串
+ * @returns {{ MSIP: string; MTIP: string; MEIP: string }} 各位的 0/1 字符串
+ */
 function mipBreakdown(val: string | undefined): { MSIP: string; MTIP: string; MEIP: string } {
   const n = safeBigInt(val);
   return {
+    // 按位提取对应的 pending 标志
     MSIP: ((n >> 3n)  & 1n).toString(),
     MTIP: ((n >> 7n)  & 1n).toString(),
     MEIP: ((n >> 11n) & 1n).toString(),
   };
 }
+
+/**
+ * 解析 mie 寄存器的 MSIE / MTIE / MEIE 三位。
+ *
+ * - MSIE 在 bit3
+ * - MTIE 在 bit7
+ * - MEIE 在 bit11
+ *
+ * @param {string | undefined} val mie 的十六进制字符串
+ * @returns {{ MSIE: string; MTIE: string; MEIE: string }} 各位的 0/1 字符串
+ */
 function mieBreakdown(val: string | undefined): { MSIE: string; MTIE: string; MEIE: string } {
   const n = safeBigInt(val);
   return {
+    // 按位提取对应的中断使能标志
     MSIE: ((n >> 3n)  & 1n).toString(),
     MTIE: ((n >> 7n)  & 1n).toString(),
     MEIE: ((n >> 11n) & 1n).toString(),
   };
 }
 
-// ★ CSR 行类型：parts 仅 mie/mip 行有，统一用 Record<string,string> 方便模板访问
+/**
+ * ★ CSR 行中可分解的子字段集合。
+ */
 type CsrParts = Record<string, string>;
+
+/**
+ * CSR 表格中每一行的数据结构。
+ */
 interface CsrRow {
+  /** CSR 寄存器名称 */
   name: string;
+  /** 描述文本 */
   desc: string;
+  /** 当前值（十六进制字符串） */
   value: string;
+  /** 分解后的位级字段（仅 mie/mip 行有） */
   parts?: CsrParts;
 }
 
+/**
+ * 根据 store 中的 CSR 状态组装表格行。
+ */
 const csrRows = computed<CsrRow[]>(() => {
   const csr = pipelineStore.csrState;
+  // 预解析各 CSR 的位级展开
   const mstatusParts = mstatusBreakdown(csr.mstatus);
   const mipParts  = mipBreakdown(csr.mip);
   const mieParts  = mieBreakdown(csr.mie);
@@ -273,7 +373,9 @@ const csrRows = computed<CsrRow[]>(() => {
   ];
 });
 
-// ★ 中断源标签（带滞回，从 store 读 lastInterruptSrc）
+/**
+ * ★ 中断源中文标签（带滞回，从 store 读 lastInterruptSrc）。
+ */
 const interruptSrcLabel = computed(() => {
   switch (pipelineStore.lastInterruptSrc) {
     case 'si': return '软件中断 (Software Interrupt)';
@@ -282,9 +384,15 @@ const interruptSrcLabel = computed(() => {
     default:   return '未知中断源';
   }
 });
+
+/**
+ * 中断源缩写（用于显示 mcause 低位编号）。
+ */
 const interruptSrcAbbr = computed(() => {
+  // 中断源到 mip 位编号的映射
   const map: Record<string, string> = { si: 'MSIP/3', ti: 'MTIP/7', ei: 'MEIP/11' };
   const k = pipelineStore.lastInterruptSrc ?? '';
+  // 未知源显示 '?'
   return map[k] ?? '?';
 });
 </script>
@@ -334,9 +442,11 @@ const interruptSrcAbbr = computed(() => {
         <div>
           mcause =
           <span class="font-mono">{{ parseHexValue(pipelineStore.csrState.mcause) }}</span>
+          <!-- 中断：附带显示中断源 -->
           <span v-if="pipelineStore.lastTrapType === 'interrupt'" class="text-amber-600 ml-1">
             → {{ interruptSrcLabel }}（{{ interruptSrcAbbr }}）
           </span>
+          <!-- 异常：附带说明 ECALL/EBREAK -->
           <span v-else class="text-gray-400 ml-1">
             （ECALL/EBREAK 触发的异常）
           </span>
@@ -373,6 +483,7 @@ const interruptSrcAbbr = computed(() => {
           <FileCode class="w-4 h-4" />
           加载中断示例程序
         </button>
+        <!-- 三源触发按钮，按位编号标注 -->
         <div class="grid grid-cols-3 gap-2">
           <button
             @click="triggerSi"
@@ -420,16 +531,19 @@ const interruptSrcAbbr = computed(() => {
           <tr v-for="row in csrRows" :key="row.name" class="border-b border-gray-100 align-top">
             <td class="py-1.5 pr-2 font-mono text-cyan-700 w-20">{{ row.name }}</td>
             <td class="py-1.5 pr-2 text-gray-500 text-[0.625rem] leading-tight">
+              <!-- mie 行展开三位使能 -->
               <template v-if="row.name === 'mie'">
                 MSIE(3)=<b :class="row.parts!['MSIE']==='1'?'text-emerald-600':'text-gray-400'">{{ row.parts!['MSIE'] }}</b>
                 · MTIE(7)=<b :class="row.parts!['MTIE']==='1'?'text-emerald-600':'text-gray-400'">{{ row.parts!['MTIE'] }}</b>
                 · MEIE(11)=<b :class="row.parts!['MEIE']==='1'?'text-emerald-600':'text-gray-400'">{{ row.parts!['MEIE'] }}</b>
               </template>
+              <!-- mip 行展开三位 pending -->
               <template v-else-if="row.name === 'mip'">
                 MSIP(3)=<b :class="row.parts!['MSIP']==='1'?'text-amber-600':'text-gray-400'">{{ row.parts!['MSIP'] }}</b>
                 · MTIP(7)=<b :class="row.parts!['MTIP']==='1'?'text-amber-600':'text-gray-400'">{{ row.parts!['MTIP'] }}</b>
                 · MEIP(11)=<b :class="row.parts!['MEIP']==='1'?'text-amber-600':'text-gray-400'">{{ row.parts!['MEIP'] }}</b>
               </template>
+              <!-- 其他 CSR 行只显示描述 -->
               <template v-else>{{ row.desc }}</template>
             </td>
             <td class="py-1.5 text-right font-mono text-emerald-700">{{ row.value }}</td>

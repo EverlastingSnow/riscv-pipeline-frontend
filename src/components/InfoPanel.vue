@@ -11,28 +11,62 @@ import {
 
 const pipelineStore = usePipelineStore();
 
+/**
+ * 基本信息分区是否展开。
+ */
 const isBasicInfoExpanded = ref(true);
+/**
+ * 活跃信号分区是否展开。
+ */
 const isAllSignalsExpanded = ref(false);
+/**
+ * 通用寄存器堆分区是否展开。
+ */
 const isRegisterExpanded = ref(true);
 
+/**
+ * 根据信号的 active 状态与类型返回对应的 CSS 类名。
+ *
+ * 用于在 UI 上根据信号类型（数据 / 地址 / 控制）使用不同颜色高亮。
+ *
+ * @param {any} signal 信号对象，包含 active 与 type 字段
+ * @returns {string} 对应的样式类名
+ */
 const getSignalClass = (signal: any) => {
+  // 未激活的信号使用灰色样式
   if (!signal.active) return 'signal-inactive';
+  // 根据信号类型返回不同的颜色类
   if (signal.type === 'data') return 'signal-data';
   if (signal.type === 'addr') return 'signal-addr';
   if (signal.type === 'control') return 'signal-control';
   return '';
 };
 
+/**
+ * 判断一个十六进制字符串表示的寄存器值是否为非零值。
+ *
+ * 支持处理空值、不完整的 '0x' / '0X' 形式以及非法的十六进制串。
+ *
+ * @param {string} value 十六进制字符串值
+ * @returns {boolean} 非零时返回 true
+ */
 const hasValue = (value: string): boolean => {
+  // 空值或不完整前缀视为无值
   if (!value || value === '0x' || value === '0X') return false;
+  // 去掉 0x / 0X 前缀
   const hexVal = value.startsWith('0x') || value.startsWith('0X') ? value.slice(2) : value;
   try {
+    // 使用 BigInt 解析，避免超出 JS Number 安全范围
     return BigInt('0x' + hexVal) !== BigInt(0);
   } catch {
+    // 解析失败视为无值
     return false;
   }
 };
 
+/**
+ * RISC-V 通用寄存器别名映射（x0..x31 → ABI 别名）。
+ */
 const registerAliases: Record<string, string> = {
   'x0': 'zero', 'x1': 'ra', 'x2': 'sp', 'x3': 'gp', 'x4': 'tp',
   'x5': 't0', 'x6': 't1', 'x7': 't2',
@@ -43,14 +77,29 @@ const registerAliases: Record<string, string> = {
   'x28': 't3', 'x29': 't4', 'x30': 't5', 'x31': 't6'
 };
 
+/**
+ * 将十六进制字符串值格式化为统一的 0x 开头大写形式。
+ *
+ * - 空值或 0 输出 '0x0'
+ * - 解析失败时回退为原始字符串
+ *
+ * @param {string} value 原始十六进制字符串
+ * @returns {string} 格式化后的十六进制字符串
+ */
 const formatValue = (value: string): string => {
+  // 空值或不完整前缀统一为 0x0
   if (!value || value === '0x' || value === '0X') return '0x0';
+  // 去掉 0x / 0X 前缀
   const hexVal = value.startsWith('0x') || value.startsWith('0X') ? value.slice(2) : value;
   try {
+    // 使用 BigInt 安全处理大整数
     const bigIntVal = BigInt('0x' + hexVal);
+    // 0 值统一为 0x0
     if (bigIntVal === BigInt(0)) return '0x0';
+    // 输出大写十六进制字符串
     return '0x' + bigIntVal.toString(16).toUpperCase().padStart(1, '0');
   } catch {
+    // 解析失败保留原始字符串
     return value;
   }
 };
@@ -58,12 +107,13 @@ const formatValue = (value: string): string => {
 
 <template>
   <div class="info-panel">
+    <!-- 面板头部：标题区 -->
     <div class="panel-header">
       <Activity class="w-5 h-5 text-primary-500" />
       <h2>CPU 状态信息</h2>
     </div>
-    
-    <!-- 基本信息 -->
+
+    <!-- 基本信息：周期与 PC -->
     <div class="info-section">
       <h3 class="section-title" @click="isBasicInfoExpanded = !isBasicInfoExpanded">
         <ChevronDown v-if="isBasicInfoExpanded" class="w-4 h-4 chevron-icon" />
@@ -78,11 +128,17 @@ const formatValue = (value: string): string => {
         </div>
         <div class="info-item">
           <span class="label">当前PC</span>
+          <!--
+            PC 显示逻辑：
+            - 下一周期 PC 无效（'0x0' 或不存在）显示 '/'
+            - 当前 PC 为 0x0 时使用启动地址 0x7ffffffc
+            - 否则显示当前 PC
+          -->
           <span class="value mono">{{ !pipelineStore.signals?.if_id?.PC_next || pipelineStore.signals?.if_id?.PC_next === '0x0' ? '/' : (pipelineStore.signals?.if_id?.pc === '0x0' ? '0x7ffffffc' : pipelineStore.signals?.if_id?.pc || '0x7ffffffc') }}</span>
         </div>
       </div>
     </div>
-    
+
     <!-- 活跃控制信号和数据流 -->
     <div class="info-section">
       <h3 class="section-title" @click="isAllSignalsExpanded = !isAllSignalsExpanded">
@@ -92,6 +148,7 @@ const formatValue = (value: string): string => {
         活跃信号
       </h3>
       <div v-show="isAllSignalsExpanded" class="signal-list">
+        <!-- 信号列表，根据类型高亮 -->
         <div
           v-for="signal in pipelineStore.allSignals"
           :key="signal.id"
@@ -101,6 +158,7 @@ const formatValue = (value: string): string => {
           <span class="signal-name">{{ signal.label }}</span>
           <span class="signal-value mono">{{ signal.value }}</span>
         </div>
+        <!-- 空状态占位 -->
         <div v-if="pipelineStore.allSignals.length === 0" class="signal-item empty">
           <span>暂无活跃信号</span>
         </div>
@@ -116,6 +174,7 @@ const formatValue = (value: string): string => {
         通用寄存器堆
       </h3>
       <div v-show="isRegisterExpanded" class="register-list">
+        <!-- 寄存器行：根据是否非零高亮 -->
         <div
           v-for="reg in pipelineStore.registers"
           :key="reg.name"
@@ -138,14 +197,14 @@ const formatValue = (value: string): string => {
         <span>快速操作</span>
       </h3>
       <div v-show="isQuickActionsExpanded" class="quick-actions">
-        <button 
+        <button
           @click="pipelineStore.openModal('register')"
           class="action-btn"
         >
           <Database class="w-4 h-4" />
           <span>通用寄存器堆</span>
         </button>
-        <button 
+        <button
           @click="pipelineStore.openModal('control')"
           class="action-btn"
         >
@@ -154,8 +213,8 @@ const formatValue = (value: string): string => {
         </button>
       </div>
     </div> -->
-    
-    <!-- 运行状态 -->
+
+    <!-- 运行状态指示 -->
     <div class="runtime-status" :class="{ 'running': pipelineStore.isRunning }">
       <div class="status-indicator">
         <span class="dot"></span>
